@@ -1,0 +1,4 @@
+\contentsline {section}{Report Outline}{2}{section*.2}
+\contentsline {section}{Basic idea}{3}{section*.3}
+\contentsline {section}{State machine}{4}{section*.4}
+\contentsline {section}{Conclusions}{5}{section*.5}

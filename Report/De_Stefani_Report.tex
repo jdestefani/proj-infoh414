@@ -1,0 +1,550 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Programming/Coding Assignment
+% LaTeX Template
+%
+% This template has been downloaded from:
+% http://www.latextemplates.com
+%
+% Original author:
+% Ted Pavlic (http://www.tedpavlic.com)
+%
+% Adapted by:
+% Jacopo De Stefani (jacopo.de.stefani@gmail.com)
+%
+% Note:
+% The \lipsum[#] commands throughout this template generate dummy text
+% to fill the template out. These commands should all be removed when 
+% writing assignment content.
+%
+% This template uses a Perl script as an example snippet of code, most other
+% languages are also usable. Configure them in the "CODE INCLUSION 
+% CONFIGURATION" section.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{fancyhdr} % Required for custom headers
+\usepackage{lastpage} % Required to determine the last page for the footer
+\usepackage{extramarks} % Required for headers and footers
+\usepackage[usenames,dvipsnames]{color} % Required for custom colors
+\usepackage{graphicx} % Required to insert images
+\usepackage{listings} % Required for insertion of code
+\usepackage{courier} % Required for the courier font
+\usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
+\usepackage{rotating}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{multicol}
+\usepackage{caption}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{algpseudocode}% http://ctan.org/pkg/algorithmicx
+\usepackage{algorithm}% http://ctan.org/pkg/algorithm
+\usepackage{pdflscape}
+\usepackage{hyperref}
+\usepackage{pifont}
+\usepackage{subcaption}
+
+\usetikzlibrary{positioning,shadows,arrows,intersections,calc,automata}
+
+% Margins
+\topmargin=-0.45in
+\evensidemargin=0in
+\oddsidemargin=0in
+\textwidth=6.5in
+\textheight=9.0in
+\headsep=0.25in
+
+\linespread{1.1} % Line spacing
+
+% Set up the header and footer
+\pagestyle{fancy}
+\lhead{} % Top left header
+\chead{\hmwkClass\ (\hmwkClassInstructor) : \hmwkTitle} % Top center head
+\rhead{}%\firstxmark} % Top right header
+\lfoot{\hmwkAuthorName} % Bottom left footer
+\cfoot{}%\lastxmark} % Bottom center footer
+\rfoot{Page\ \thepage\ of\ \protect\pageref{LastPage}} % Bottom right footer
+\renewcommand\headrulewidth{0.4pt} % Size of the header rule
+\renewcommand\footrulewidth{0.4pt} % Size of the footer rule
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+%----------------------------------------------------------------------------------------
+%	CODE INCLUSION CONFIGURATION
+%----------------------------------------------------------------------------------------
+
+\definecolor{MyDarkGreen}{rgb}{0.0,0.4,0.0} % This is the color used for comments
+\lstloadlanguages{Python} % Load Perl syntax for listings, for a list of other languages supported see: ftp://ftp.tex.ac.uk/tex-archive/macros/latex/contrib/listings/listings.pdf
+\lstset{language=Python, % Use Perl in this example
+        frame=single, % Single frame around code
+        basicstyle=\small\ttfamily, % Use small true type font
+        keywordstyle=[1]\color{Blue}\bf, % Perl functions bold and blue
+        keywordstyle=[2]\color{Purple}, % Perl function arguments purple
+        keywordstyle=[3]\color{Blue}\underbar, % Custom functions underlined and blue
+        identifierstyle=, % Nothing special about identifiers                                         
+        commentstyle=\usefont{T1}{pcr}{m}{sl}\color{MyDarkGreen}\small, % Comments small dark green courier font
+        stringstyle=\color{Purple}, % Strings are purple
+        showstringspaces=false, % Don't put marks in string spaces
+        tabsize=5, % 5 spaces per tab
+        %
+        % Put standard Perl functions not included in the default language here
+        morekeywords={rand},
+        %
+        % Put Perl function parameters here
+        morekeywords=[2]{on, off, interp},
+        %
+        % Put user defined functions here
+        morekeywords=[3]{test},
+       	%
+        morecomment=[l][\color{Blue}]{...}, % Line continuation (...) like blue comment
+        numbers=left, % Line numbers on left
+        firstnumber=1, % Line numbers start with line 1
+        numberstyle=\tiny\color{Blue}, % Line numbers are blue and small
+        stepnumber=5, % Line numbers go in steps of 5
+        breaklines=true
+}
+
+% Creates a new command to include a perl script, the first parameter is the filename of the script (without .pl), the second parameter is the caption
+\newcommand{\pyscript}[2]{
+\begin{itemize}
+\item[]\lstinputlisting[caption=#2,label=#1]{#1.py}
+\end{itemize}
+}
+
+%----------------------------------------------------------------------------------------
+%	DOCUMENT STRUCTURE COMMANDS
+%	Skip this unless you know what you're doing
+%----------------------------------------------------------------------------------------
+
+% Header and footer for when a page split occurs within a problem environment
+\newcommand{\enterProblemHeader}[1]{
+\nobreak\extramarks{#1}{#1 continued on next page\ldots}\nobreak
+\nobreak\extramarks{#1 (continued)}{#1 continued on next page\ldots}\nobreak
+}
+
+% Header and footer for when a page split occurs between problem environments
+\newcommand{\exitProblemHeader}[1]{
+\nobreak\extramarks{#1 (continued)}{#1 continued on next page\ldots}\nobreak
+\nobreak\extramarks{#1}{}\nobreak
+}
+
+\setcounter{secnumdepth}{0} % Removes default section numbers
+\newcounter{homeworkProblemCounter} % Creates a counter to keep track of the number of problems
+
+\newcommand{\homeworkProblemName}{}
+\newenvironment{homeworkProblem}[1][Problem \arabic{homeworkProblemCounter}]{ % Makes a new environment called homeworkProblem which takes 1 argument (custom name) but the default is "Problem #"
+\stepcounter{homeworkProblemCounter} % Increase counter for number of problems
+\renewcommand{\homeworkProblemName}{#1} % Assign \homeworkProblemName the name of the problem
+\section{\homeworkProblemName} % Make a section in the document with the custom problem count
+\enterProblemHeader{\homeworkProblemName} % Header and footer within the environment
+}{
+\exitProblemHeader{\homeworkProblemName} % Header and footer after the environment
+}
+
+\newcommand{\problemAnswer}[1]{ % Defines the problem answer command with the content as the only argument
+\noindent\framebox[\columnwidth][c]{\begin{minipage}{0.98\columnwidth}#1\end{minipage}} % Makes the box around the problem answer and puts the content inside
+}
+
+\newcommand{\homeworkSectionName}{}
+\newenvironment{homeworkSection}[1]{ % New environment for sections within homework problems, takes 1 argument - the name of the section
+\renewcommand{\homeworkSectionName}{#1} % Assign \homeworkSectionName to the name of the section from the environment argument
+\subsection{\homeworkSectionName} % Make a subsection with the custom name of the subsection
+\enterProblemHeader{\homeworkProblemName\ [\homeworkSectionName]} % Header and footer within the environment
+}{
+\enterProblemHeader{\homeworkProblemName} % Header and footer after the environment
+}
+
+%----------------------------------------------------------------------------------------
+%	USER DEFINED TIKZ STYLES
+%----------------------------------------------------------------------------------------
+
+\tikzset{
+    player1/.style={circle, draw=none, fill=green!70!black, circular drop shadow,
+        text centered, anchor=north, text=white},
+    player2/.style={circle, draw=none, fill=orange, circular drop shadow,
+        text centered, anchor=north, text=white},
+    chance/.style={circle, draw,text centered, anchor=north},
+    subtreeB/.style={rectangle, draw, rounded corners=1mm, color=red, thick,
+        text centered, anchor=north, text=red},
+    subtreeC/.style={rectangle, draw, rounded corners=1mm, color=orange, thick,
+        text centered, anchor=north, text=orange},
+    ex2/.style={circle, draw,text centered, anchor=north},
+    nashEq1P/.style={circle,draw=none, fill=green!70!black, text centered, anchor=north, text=white,inner sep=2pt},
+    nashEq2P/.style={circle,draw=none, fill=orange, text centered, anchor=north, text=white,inner sep=2pt},
+    nashEqPoints/.style={fill=white,draw=black,thick},
+    level distance=0.5cm, growth parent anchor=south
+}
+
+\tikzstyle{tier}=[draw, fill=yellow!20, text width=6.0em, text centered,
+  minimum height=1.5em,drop shadow]
+\tikzstyle{component} = [tier, text width=8em, minimum width=10em,
+  minimum height=3em, rounded corners, drop shadow,inner sep=2pt]
+\tikzstyle{texto} = [above, text width=6em, text centered]
+\tikzstyle{linepart} = [draw, thick, color=black!50, -latex', dashed]
+\tikzstyle{line} = [draw, thick, color=black!50, -latex', ->]
+\tikzstyle{ur}=[draw, text centered, minimum height=0.01em]
+ 
+% Define distances for bordering
+\newcommand{\blockdist}{1.3}
+\newcommand{\edgedist}{1.5}
+
+\newcommand{\component}[2]{node (p#1) [component]
+  {{\scriptsize\textit{#2}}}}
+
+
+% Draw background
+\newcommand{\backgroundSquare}[5]{%
+  \begin{pgfonlayer}{background}
+    % Left-top corner of the background rectangle
+    \path (#1.west |- #2.north)+(-0.5,0.5) node (a1) {};
+    % Right-bottom corner of the background rectanle
+    \path (#3.east |- #4.south)+(+0.5,-0.25) node (a2) {};
+    % Draw the background
+    \path[fill=blue!20,rounded corners, draw=black!50, dashed]
+      (a1) rectangle (a2);
+    \path (a1.east |- a1.south)+(0.8,-0.3) node (u1)[texto]
+      {\scriptsize\textit{#5 Tier}};
+  \end{pgfonlayer}}
+
+
+\newcommand*\circled[2]{\tikz[baseline=(char.base)]{
+            \node[#2,rectangle, rounded corners=0.7mm, text=white] (char) {#1};}}
+\newcommand*\cellvcenter[1]{\raisebox{-\height}{#1}}
+
+
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}%
+
+%----------------------------------------------------------------------------------------
+%	NAME AND CLASS SECTION
+%----------------------------------------------------------------------------------------
+
+\newcommand{\hmwkTitle}{Swarm Robotics Project - Diffusion} % Assignment title
+\newcommand{\hmwkDueDate}{Wednesday,\ April\ 10,\ 2013} % Due date
+\newcommand{\hmwkClass}{INFO-H-414 - Swarm Intelligence} % Course/class
+\newcommand{\hmwkClassTime}{} % Class/lecture time
+\newcommand{\hmwkClassInstructor}{Prof. M. Dorigo} % Teacher/lecturer
+\newcommand{\hmwkAuthorName}{Jacopo De Stefani} % Your name
+\newcommand{\maxmin}{$\mathcal{MAX}-\mathcal{MIN}$}
+
+%----------------------------------------------------------------------------------------
+%	TITLE PAGE
+%----------------------------------------------------------------------------------------
+
+\title{
+\vspace{2in}
+\textmd{\textbf{\hmwkClass:\\ The Traveling Salesman Problem with Time Windows \\ Stochastic Local Search Algorithms}}\\
+%\normalsize\vspace{0.1in}\small{Due\ on\ \hmwkDueDate}\\
+\vspace{0.1in}\large{\textit{\hmwkClassInstructor\ }}
+\vspace{3in}
+}
+
+\author{\textbf{\hmwkAuthorName}}
+\date{\today} % Insert date here if you want it to appear below your name
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+\include{titlePage}
+%\maketitle
+
+%----------------------------------------------------------------------------------------
+%	TABLE OF CONTENTS
+%----------------------------------------------------------------------------------------
+
+%\setcounter{tocdepth}{1} % Uncomment this line if you don't want subsections listed in the ToC
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Report Outline}
+A report of 4-6 pages structured as follows:
+\begin{itemize}
+\item Main idea of your approach [1 page]
+\item Structure of your solution (the state machine) [2 pages]
+\item Analysis of the results [1-3 pages]
+\end{itemize}
+
+% The main objective of this implementation exercise is to compare the performance of two stochastic local search (SLS), whose implementation will be built on top of the perturbative local search methods from the first implementation exercise.
+
+% The \nameref{impl} section will discuss the general code structure and how to run the program and interpret the results.
+
+% The first implemented algorithm is a population-based one, presented in detail in section \nameref{aco}.
+% It consist of an Ant Colony algorithm inspired by the \maxmin Ant System (cf. \cite{stutzle2000max}) to the TSPTW problem, using the heuristic proposed in \cite{lopez2010beam}. 
+
+% On the other hand, the second algorithm can be classified as a simple SLS.
+% It is an implementation of the Simulated Annealing meta-heuristic (cf. \cite{kirkpatrick1983optimization}), whose detailed description can be found in section \nameref{sa}.
+
+% Section \nameref{results} shows the results obtained by the implemented algorithms on the proposed set of instances, along with their analysis.
+
+% \section{Implementation}\label{impl}
+% The implementations had been written using the C++ programming language, in order to take advantage of the functionalities offered by the Standard Template Library (STL).
+
+% The modular and object oriented approach applied in the first implementation exercise allowed to build I/O software modules (\emph{InstanceReader} and \emph{Writer}) that have been re-used here.
+
+% Furthermore, the same conceptual division among the command line interface \emph{TSPTW-X} and the actual implementation \emph{XCore} (X being either ACO or SA, in this case) has been maintained to favor encapsulation.
+
+% The cores are directly linked with the reader (\emph{InstanceReader}) which reads the files containing all the information to run the simulation (distance matrix, time windows vector and seeds list) and the writer (\emph{Writer}) which outputs the results of the simulation in a CSV file.
+% In addition to the previous exercise, the solver core (\emph{HeuristicCore}) is used to give access to the already implemented perturbative local search methods.
+
+% Two different command line front-ends, sharing the same underlying structure, but having a different set of parameters, have been developed to distinguish the ACO command-line interface from the SA one. 
+
+% The global program structure is depicted here:
+
+% \begin{center}
+% \begin{tikzpicture}[transform shape]
+ 
+%   % Draw diagram elements
+  
+%   \path \component {1}{InstanceReader};
+%   \path (p1.north)+(-2.0,+1.5) \component{3}{TSPTW-ACO};
+%   \path (p1.south)+(-2.0,-1.5) \component{4}{TSPTW-SA};
+%   \path (p3.east)+(+3.0,0.0) \component{5}{ACOCore};
+%   \path (p4.east)+(+3.0,0.0) \component{6}{SACore};
+%   \path (p1.east)+(+2.5,0.0) \component{7}{HeuristicCore};
+%   \path (p7.east)+(+2.5,+0.0) \component {2}{Writer};
+     
+%   % Draw arrows between elements
+%   \path [line] (p3.south) -> node [above] {} (p1);
+%   \path [line] (p4.north) -> node [above] {} (p1);
+%   \path [line] (p1.north) -> node [above, midway] {} (p5.south);
+%   \path [line] (p1.south) -> node [above, midway] {} (p6.north);
+%   \path [line] (p3.east) -> node [above] {} (p5.west);
+%   \path [line] (p4.east) -> node [above] {} (p6.west);
+%   \path [line] (p5.south) -> node [above] {} (p2.north);
+%   \path [line] (p6.north) -> node [above] {} (p2.south);
+%   \path [line] (p5.south) -> node [above] {} (p7.north);
+%   \path [line] (p6.north) -> node [above] {} (p7.south);
+%   \path [line] (p7.south) -> node [above] {} (p6.north);
+%   \path [line] (p7.north) -> node [above] {} (p5.south);
+%   %\backgroundSquare{p1}{p1}{p3}{p3}{Presentation}
+
+%  \end{tikzpicture}
+%  \captionof{figure}{Simulation Code Structure}
+% \end{center}
+
+% The names of the nodes corresponds to those of the implementation (.cpp) and header files for the corresponding classes.
+
+% In addition to these, a class to represent the time windows (TimeWindow.h), one to represent the candidate solution as
+% a user defined data type (CandidateSolution.\{h,cpp\}) and one to implement the virtual ant (Ant.h) have been implemented.
+
+% In order to improve the performances of the algorithm a template class called \emph{NumericMatrix} has been created to reduce the computation time due to the access to the matrices (distance and pheromone).
+
+% \subsection{How to compile the program?}
+% The software was developed in C++98 under Linux (Debian Wheezy), using the GNU g++ (Debian 4.7.2-5) 4.7.2 compiler and tested in this environment. 
+% The software is distributed as a compressed tar file, containing both the source code (in the \verb|src| folder) and the scripts and instances (in the \verb|bin| and \verb|bin\instances| respectively).
+% To install the program, first obtain the file TSPTW.V1.1.tar.gz. 
+
+% Unzip the file by typing:
+
+% \begin{center}
+% \begin{verbatim}
+% gunzip TSPTW.V1.1.tar.gz
+% \end{verbatim}
+% \end{center}
+
+% and then unpack it by typing:
+
+% \begin{center}
+% \begin{verbatim}
+% tar -xvf TSPTW.V1.1.tar
+% \end{verbatim}
+% \end{center}
+
+% The software will be extracted in a new folder TSPTW.V1.0 
+
+% Finally, by launching
+% \begin{center}
+% \begin{verbatim}
+% make all
+% \end{verbatim}
+% \end{center}
+
+% the Makefile will trigger the compilation of the files,
+% producing the executables 'TSPTW-II','TSPTW-VND','TSPTW-ACO','TSPTW-SA' in the \verb|bin| folder.
+
+% \textbf{Note:} The code is written in C++98. Hence, the code should be
+% reasonably portable to other Operating Systems than Linux or Unix.
+
+% \subsection{How to run the program?}
+
+% Once the program has been compiled, two separate executable files,
+% corresponding to the different kind of metaheuristic (i.e. Ant Colony Optimization
+% and Simulated Annealing) can be either launched directly via the command line
+% interface or using the bash script to launch.
+
+% The design choice to separate the two different kind of meta-heuristic is made in order to limit the number of command line parameters to be given as input to the program.
+
+% \subsubsection{Command-line execution}
+% By launching\footnote{The squared-bracket notation implies that the formal parameters to the script have to be substituted by their actual value.}:
+% \begin{center}
+% \begin{verbatim}
+% ./TSPTW-ACO [PARAMETERS] -i [INPUT_FILE] -s [SEEDS_FILE]
+% \end{verbatim}
+% \begin{verbatim}
+% ./TSPTW-SA [PARAMETERS] -i [INPUT_FILE] -s [SEEDS_FILE]
+% \end{verbatim}
+% \end{center}
+
+% one can display the information about the meaning of the different options that can be given as input to the program.
+
+% Additional information concerning the usage of the program can be found in the README file.
+
+% The only mandatory options are "-i, --input" and "-s,-seeds", since
+% without these components will not be possible to execute the simulation.
+
+% The argument to the input option must contain the full path to the instance file.
+
+% The seeds file must contain a number of seeds at least equal to the number of
+% runs required, one seed per line without any additional information.
+
+% \paragraph{Output}
+% Each experiment produces a couple of files:
+% \begin{itemize}
+%   \item \textbf{(ACO)} \verb|ACO.[INSTANCE_NAME].txt| and \verb|ACO.[INSTANCE_NAME].rtd|
+%   \item \textbf{(SA)} \verb|SA.[INSTANCE_NAME].txt| and \verb|SA.[INSTANCE_NAME].rtd|
+% \end{itemize} 
+				
+					 
+% \textbf{Examples:} \begin{verbatim}
+% ACO.n80w200.004.txt
+% SA.n80w20.003.txt
+% \end{verbatim}
+
+
+% The internal structure of the \verb|.txt| files is: 
+% \begin{tabular}{|c|c|c|}
+% \hline
+% \textbf{Seed}	&	\textbf{CV} & \textbf{PRPD} \\ \hline
+% \end{tabular}
+
+% For each run of the algorithm, the program writes in the file, using a tabulation as separator, the used seed, the number of constraints violations and the penalized relative percentage deviation. \\
+
+% The internal structure of the \verb|.rtd| files: 
+% \begin{tabular}{|c|c|c|c|}
+% \hline
+% \textbf{Seed}	&	\textbf{0.002} & \textbf{...} & \textbf{100}  \\ \hline
+% \end{tabular}
+
+% For each run of the algorithm, the program writes in the file, using a tabulation as separator, the seed of the run and the solution quality sampled at the time indicated in the column header, computed as described in \nameref{subsec:measure}.
+
+% Each set of samples is separated from the following using a newline character.
+
+
+% \subsubsection{Script execution}
+% By launching:
+% \begin{center}
+% \begin{verbatim}
+% ./launchTSPTW-SLS.sh [INSTANCE_NAME] [RUNS] [SEEDS_FILE]
+% \end{verbatim}
+% \end{center}
+
+% The script will:
+% \begin{enumerate}
+%   \item Create the files required by the data processing script to write statistics.
+%   \item Generate a seed file, named [SEEDS\_FILE] containing [RUNS] randomly generated seeds.
+%   \item Launch the TSPTW-ACO and the TSPTW-SA program for [RUNS] on [INSTANCE\_NAME] using the default parameter settings.
+%   \item Wait for the termination of all the previously launched experiment and call the R data processing script
+% \end{enumerate}
+
+% The script assumes that all the instances are located into the instances folder, hence it is only necessary to indicate the instance name, instead of the complete path.
+
+% \paragraph{Output}
+
+% Each execution of the script will then generate the files:
+% \begin{itemize}
+%   \item \verb|[INSTANCE\_NAME]-PRPD.pdf| containing the box-plots of the PRPD distribution for each algorithm.
+%   \item \verb|[INSTANCE\_NAME]-RTD.pdf| containing the plot comparing the run-time distributions of the two algorithms.
+%   \item \verb|ACO-[INSTANCE\_NAME]-RTD.pdf| and \verb|ACO-[INSTANCE\_NAME]-RTD.pdf|containing the plots comparing the run-time distributions for different values of the solution quality $q^*$ for the same algorithm.
+%   \item 
+%         \begin{itemize}
+%           \item \textbf{(ACO)} \verb|ACO.stats| 
+%           \item \textbf{(SA)} \verb|SA.stats|
+%         \end{itemize}
+% \end{itemize}
+
+% The internal structure of the \verb|*.stats| file is the following:
+% \begin{center}
+% \begin{tabular}{|c|c|c|}
+% \hline
+% \textbf{Instance}	&	\textbf{Infeasible} & \textbf{mean(PRDP)} \\ \hline
+% \end{tabular}
+% \end{center}
+
+% Each line contains the instance name, the percentage of unfeasible runs, the mean PRDP and the mean run-time across [RUNS] runs.
+
+% \section{Problem formulation}\label{sec:probform}
+% An instance of the Travelling Salesman Problem with Time Windows (TSPTW) can be expressed as a tuple $<N,E,c,t>$ where:
+% \begin{itemize}
+%   \item $N:\{0,\cdots,n\}$ - Node set 
+%   \item $E:N\times N$ - Edge set
+%   \item $c:E\mapsto \mathbb{R}$ - Edge cost function mapping a cost $c$ to every edge $e \in E$. 
+%   \item $t:N\mapsto \mathbb{R}^2$ - Time window function mapping a couple of values $a_i,b_i$ representing respectively, the opening and closing time of the time window, such that $a_i<b_i$, to every node $i \in N$.
+%   \item A candidate solution for the problem, in this case, is represented as a permutation $p$ of the nodes in $N$, where $p_i$ represents the $i^{th}$ solution component (node) in the sequence, such that $p_0 = 0 \forall p$.
+% \end{itemize}
+
+% As in \cite{lopez2010beam} the formal definition of the problem is:
+% \begin{equation} \label{eq:probform}
+%  \begin{array}{rl}
+%   \textbf{min} & f(p)= \sum\limits_{i=0}^{n} c(e_{p_{i}p_{k+i}}) \\
+%   \textbf{subject to} & \Omega(p)= \sum\limits_{i=0}^{n+1} \omega(p_{i}) = 0
+%  \end{array}
+% \end{equation}
+
+% where
+
+% \begin{equation} \label{eq:cv}
+% \begin{array}{c}
+%  \omega(p_{i}) \begin{cases}
+%                 1 & A_{p_i} < b_{p_i}  \\
+%                 0 & \text{otherwise} \\   
+%                \end{cases} \\
+%  A_{p_{i+1}} = \max(A_{p_i},a_i) + c(e_{p_{i}p_{k+i}}) 
+% \end{array}
+% \end{equation}
+
+% As one may notice in \ref{eq:probform} and \ref{eq:cv}, a feasible solution $p$ for the problem is a permutation where the constraints related to the time windows are met for every node $i$ in the permutation.
+
+
+% In the implementation, an instance is completely defined by:
+% \begin{itemize}
+% \item \textbf{Cost matrix} - Encapsulating information on the node set $N$, edge set $E$, and weighting of each edge $c$.
+% \item \textbf{Time window vector} - Describing the time window mapping function $t$ for each node.
+% \end{itemize}
+
+
+\include{BasicIdea}
+\include{StateMachine}
+% %\include{Results}
+
+
+\section{Conclusions}
+To summarize the results from the previous analysis:
+\begin{itemize}
+      \item On this set of instances, the Simulated Annealing algorithm performs generally better than Ant Colony Optimization.
+    \item Simulated Annealing is able to generate an higher percentage of feasible and high quality solutions. 
+  \item I believe that the strong limitation of computation times, with respect to VND, has a strong impact on the performance of the algorithms as the generally low probability of finding high quality solutions shows, for ACO in particular.
+  \item Further improvement on the ACO algorithm could be made by implementing the original \maxmin system and using an heuristic which could make a better use of the locally available information and guide the algorithm towards feasible solutions.
+  \item While the performances of the ACO system are comparable, if not slightly worse than the best VND algorithm implemented in the previous implementation exercise, SA has considerably low run-times required to find high-quality solution and higher percentages of feasible solutions, thus outperforming both the aforementioned algorithms.
+  \item The usage of average statistics as metrics to measure the quality of the algorithms is strongly biased by the presence of outliers (penalization, in this case).
+\end{itemize}
+
+
+
+\bibliographystyle{plain}
+\bibliography{References}
+
+\end{document}

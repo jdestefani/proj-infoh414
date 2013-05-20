@@ -9,6 +9,9 @@ require "SIUtils"
 -- # Wheels
 -- # Range and bearing system
 
+-- Statistics
+
+robot.in_chain = 0
 
 -- States: 
 WALK = "Linear walk"
@@ -204,3 +207,4 @@ function ParseRAB()
 	table.sort(rabReadings, function(a,b) return a.range < b.range)
    return #(rabReadings)
 end
+
