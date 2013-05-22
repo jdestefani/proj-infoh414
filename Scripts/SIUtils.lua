@@ -1,36 +1,28 @@
+--[[
+***************************************************************************
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+    Author: Jacopo De Stefani <jacopo.de.stefani@gmail.com>
+
+***************************************************************************
+]]
+
 --[[  File containing different utility functions for the project
   ]]
 
---
---function vec2_new_polar(length, angle)
-   --local vec2 = {
-     -- x = length * math.cos(angle)
-    --  y = length * math.sin(angle)
-   --}
-  -- return vec2
---end
-
--- Summing two 2D vectors (v1 = v1 + v2)
-function vec2DSum(v1, v2)
-   v1.x = v1.x + v2.x
-   v1.y = v1.y + v2.y
-end
-
---[[ Function used to compute the angle from a 2D vector ]]
-function vec2DAngle(v)
-   return math.atan2(v.y, v.x)
-end
-
---[[ Function used to compute the length of 2D vector ]]
-function vec2DLength(v)
-   return math.sqrt(math.pow(v.x,2) + math.pow(v.y,2))
-end
-
---[[ Function used to compute the angle from a 2D vector ]]
-function vec2Polar(v)
-   polar = {vec2Length,vec2Angle(v)}
-	return polar
-end
 
 --[[ Function used to copy a table in order to prevent modifications
 	  of the internal state of the robot ]]

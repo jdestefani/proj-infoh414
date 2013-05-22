@@ -1,4 +1,28 @@
-require "SIUtils"
+--[[
+***************************************************************************
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+    Author: Jacopo De Stefani <jacopo.de.stefani@gmail.com>
+
+***************************************************************************
+]]
+
+--Path should be given with respect to the execution path of ARGoS
+dofile("./Scripts/Vector2.lua")
+dofile("./Scripts/SIUtils.lua")
 
 -- Sensors: 
 -- # Distance scanner
@@ -9,64 +33,68 @@ require "SIUtils"
 -- # Wheels
 -- # Range and bearing system
 
--- Statistics
-
-robot.in_chain = 0
-
 -- States: 
-WALK = "Linear walk"
-LTURN = "Left turn"
-RTURN = "Right turn"
-SPOT = "Entered spot"
-STOP = "Stop"
+STATE = {
+EXIT_NEST = {text="Exit nest", encoding=0},
+SPOT_REACHED = {text="Spot reached", encoding=1},
+CHAIN_BEACON = {text="Chain beacon", encoding=2},
+JUNCTION_BEACON = {text="Junction beacon", encoding=3},
+EXPLORER = {text="Explorer", encoding=4},
+}
 
 -- Readings
-IN_SPOT = 0;
-FRONT_IN_SPOT = 1;
-BACK_IN_SPOT = 2;
-LEFT_IN_SPOT = 3;
-RIGHT_IN_SPOT = 4;
-NOT_IN_SPOT = 5;
+POSITION = {
+IN_SPOT = 0,
+FRONT_IN_SPOT = 1,
+BACK_IN_SPOT = 2,
+LEFT_IN_SPOT = 3,
+RIGHT_IN_SPOT = 4,
+OUT_OF_NEST = 5,
+IN_NEST = 6,
+}
 
+-- Rotation directions
+ROTATION_DIRECTION = {
+CLOCKWISE = 0 ,
+COUNTERCLOCKWISE = 1 ,
+}
 -- Probabilities
 
 -- P_{stop} = P_{ss} + alpha*NeighborCount + P_{bs} 
 -- Probability of stopping spontaneously
-P_ss = 0.05
+--P_ss = 0.05
 -- Alpha
-alpha = 0.05
+--alpha = 0.05
 -- Probability of stopping while being in the black spot
-P_bs = 0
+--P_bs = 0
 
 
 -- P_{walk} = P_{sw} + beta*NeighborCount + P_{bw}
 -- Probability of walking spontaneously
-P_sw = 0.05
+--P_sw = 0.05
 --Beta
-beta = 0.05
+--beta = 0.05
 -- Probability of stopping while being in the black spot
-P_bw = 0
+--P_bw = 0
 
 
---Thresholds
-rbThreshold = 0.5
-
-
+--Controller parameter
+CONTROLLER_PARAMETER = {
+RAB_THRESHOLD = 0.5 ,
+WHEEL_SPEED = 5 ,
+RANDOM_TURN_PROBABILITY = 0.1 ,
+DISTANCE_SCANNER_THRESHOLD = 110,
+SENSORS = 11
+}
 
 --[[ Initialization of the state of the robot ]]
 function init()
-   state = WALK
-	randomTurnSteps = 0
-	basicVelocity = 3
-	randomInertia = 0
-	randomTurnSteps = 0
-	leftObstacle = false
-	rightObstacle = false
-	neighborCount = 0
-	robotId = string.gsub(robot.id,"fb","")
+	-- Get the robot numeric id
+	robotId = string.gsub(robot.id,"rescuer","")
 	robotId = tonumber(robotId)
-	-- Enabling of the distance scanner for further use.
-	robot.distance_scanner.enable()
+	
+	reset()
+
 end
 
 
@@ -74,7 +102,70 @@ end
 --[[ This function is executed at each time step
      It must contain the logic of your controller ]]
 function step()
-   -- put your code here
+	-- 1. Sense
+	--desiredDirection = Vector2:fromPolar(1,0)
+   position = ParseGroundSensors()
+	-- Compute the vector sum among the desired direction and the resulting vector from the Proximity sensors reading
+	--desiredDirection = ParseDistanceScanner() + ParseProximitySensors()
+	ParseRAB()
+	ParseDistanceScanner()
+	
+	--speeds = ComputeSpeedFromAngle(desiredDirection:angle())
+	speeds = ProximitySensorsToSpeeds()
+	
+	-- 2. Think	
+	--If the robot is going straight..
+	if speeds.left == WHEEL_SPEED and speeds.right == WHEEL_SPEED then
+		-- ...and it is trying to exit nest, take into account the readings from the distance scanner
+		if state==STATE.EXIT_NEST and frontObstacleDistance > 0 and frontObstacleDistance < 	CONTROLLER_PARAMETER.DISTANCE_SCANNER_THRESHOLD then
+			if rotation == ROTATION_DIRECTION.CLOCKWISE then
+				speeds = {left=WHEEL_SPEED, right=((4-1)*WHEEL_SPEED/SENSORS)}
+			end
+			if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
+				speeds = {left=((24-21)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
+			end
+		else
+		-- Otherwise perform random turns with a limited probability		
+			if robot.random.uniform() < CONTROLLER_PARAMETER.RANDOM_TURN_PROBABILITY then
+				local idx = robot.random.uniform(SENSORS)
+				if robot.random.uniform() < 0.5 then
+					speeds = {left=WHEEL_SPEED, right=((idx-1)*WHEEL_SPEED/SENSORS)}
+				else
+					speeds = {left=((idx-1)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
+				end
+			end
+		end
+	end
+	
+	-- If the robot has left the nest, then it becomes an explorer.
+	if( position == POSITION.OUT_OF_NEST ) then
+		state = STATES.EXPLORER
+	end
+
+	-- If the robot has its left part in the spot, then turn left to completely enter it.
+	if( position == POSITION.LEFT_IN_SPOT ) then
+		speeds = {left=((7-1)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
+	end
+	
+	-- If the robot has its right part in the spot, then turn right to completely enter it.
+	if( position == POSITION.RIGHT_IN_SPOT ) then
+		speeds = {left=WHEEL_SPEED, right=((7-1)*WHEEL_SPEED/SENSORS)}
+	end
+
+	-- Stop if the robot has reached the spot
+	if( position == POSITION.IN_SPOT ) then
+		state = STATES.SPOT_REACHED
+		speeds = {left=0, right=0}
+	end
+
+	--3. Act
+	-- Each robot broadcast its own ID and the encoding of its current state to all the neighboring robots
+	SendMessage(robotId,state.encoding,0)
+	
+	-- Actuate the computed velocities on the wheels
+	robot.wheels.set_velocity(speeds.left, speeds.right)
+	
+
 end
 
 
@@ -85,7 +176,22 @@ end
      called. The state of sensors and actuators is reset
      automatically by ARGoS. ]]
 function reset()
-   -- put your code here
+	-- Initialize controller state
+	state = EXIT_NEST
+	if robot.random.uniform() < 0.5 then
+		rotation = ROTATION_DIRECTION.CLOCKWISE
+	else
+		rotation = ROTATION_DIRECTION.COUNTERCLOCKWISE
+	end
+	randomTurnSteps = 0
+	
+	-- Enabling of the distance scanner for further use.
+	robot.distance_scanner.enable()
+	-- Instead of having a rotating distance scanner, lock it in a way that the long range sensor is pointing in front of the robot
+	-- In case rotation is required: robot.distance_scanner.set_rpm(10)
+	robot.distance_scanner.set_angle(math.pi/2)
+	-- Initialize statistics
+	robot.in_chain = 0
 end
 
 
@@ -133,11 +239,13 @@ function ComputeSpeedFromAngle(angle)
 end
 
 --[[ Function used to send a message having the format:
-		00 00 00 00 00 00 00 00 00 msg
+		ID State 00 00 00 00 00 00 00 msg
 	  using the R&B actuator
  ]]
-function SendMessage(msg)
-	for i = 1 , 9 do
+function SendMessage(id,state,msg)
+	robot.range_and_bearing.set_data(1,id)
+	robot.range_and_bearing.set_data(2,state)
+	for i = 3 , 9 do
 		robot.range_and_bearing.set_data(i,0)
 	end
 	robot.range_and_bearing.set_data(10,msg)
@@ -149,8 +257,21 @@ end
      Each sensor returns up to 6 values every time step, for a total of 24 readings (12 short-range and 12 long-range). 
 	  Each reading is a table composed of angle in radians and distance in cm.  ]]
 function ParseDistanceScanner()
-	dsReadings = CopyTable(robot.distance_scanner)
-	table.sort(dsReadings, function(a,b) return a.distance < b.distance)
+	frontObstacleDistance = 0
+	--dsShortReadings = CopyTable(robot.distance_scanner.short_range)
+   --dsLongReadings = CopyTable(robot.distance_scanner.long_range)
+	--table.sort(dsShortReadings, function(a,b) return a.distance < b.distance end)
+   --table.sort(dsLongReadings, function(a,b) return a.distance < b.distance end)
+	for i=1,#robot.distance_scanner.long_range do 
+			if robot.distance_scanner.long_range[i].angle == 0 then
+				frontObstacleDistance = robot.distance_scanner.long_range[i].distance
+			end
+		end
+
+	--if #dsLongReadings ~= 0 then
+		--[[angle = dsLongReadings[1].angle]]
+	--end
+	--return Vector2:fromPolar(1,angle)
 end
 
 --[[ Function used to parse the ground sensors: 
@@ -161,26 +282,33 @@ end
 function ParseGroundSensors()
 	
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0) ) then
-		return IN_SPOT;
+		return POSITION.IN_SPOT;
 	end
 	
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0)) then
-		return FRONT_IN_SPOT;
+		return POSITION.FRONT_IN_SPOT;
 	end
 	
 	if((robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0)) then
-		return BACK_IN_SPOT;
+		return POSITION.BACK_IN_SPOT;
 	end
 
 	if((robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0)) then
-		return LEFT_IN_SPOT;
+		return POSITION.LEFT_IN_SPOT;
 	end
 
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[4].value == 0)) then
-		return RIGHT_IN_SPOT;
+		return POSITION.RIGHT_IN_SPOT;
 	end
 
-	return NOT_IN_SPOT;
+	if((robot.motor_ground[1].value > 0) and (robot.motor_ground[1].value < 1) or
+		(robot.motor_ground[2].value > 0) and (robot.motor_ground[2].value < 1) or
+		(robot.motor_ground[3].value > 0) and (robot.motor_ground[3].value < 1) or
+		(robot.motor_ground[4].value > 0) and (robot.motor_ground[4].value < 1)) then 
+		return POSITION.IN_NEST;
+	end
+
+	return POSITION.OUT_OF_NEST;
 end
 
 --[[ Function used to copy and sort the readings of the proximity sensors according to their distance.
@@ -191,9 +319,50 @@ end
      The value is 0 if no obstacle is sensed and increases as the robot gets closer to the object. 
 ]]
 function ParseProximitySensors()
-	proximityReadings = CopyTable(robot.proximity)
-	table.sort(proximityReadings, function(a,b) return a.value < b.value)
+	local accumulator = Vector2:fromXY(0,0)
+	if not (robot.proximity == nil) then
+		proximityReadings = CopyTable(robot.proximity)
+		for i=1,#robot.proximity do 
+			--Sum up individual forces in accumulator vector
+			proximityVec = Vector2:fromPolar(proximityReadings[i].value,proximityReadings[i].angle)
+			proximityVec:rotate(math.pi/2)
+			accumulator = accumulator + proximityVec
+		end
+		-- Normalization of the accumulator
+		--accumulator = Vector2:fromPolar(accumulator:length()/#proximityReadings,accumulator:angle())
+		accumulator = Vector2:fromPolar(1,accumulator:angle())
+		--log(robotId.." "..accumulator:toString())
+		--table.sort(proximityReadings, function(a,b) return a.value < b.value end)
+	end
+	return accumulator
 end
+
+function ProximitySensorsToSpeeds()
+	local speeds = {left=WHEEL_SPEED,right=WHEEL_SPEED}
+	local maxVal = -1
+	local maxIdx = -1
+	if not (robot.proximity == nil) then
+		for i=1,#robot.proximity do 
+			--Find maximum reading
+			if robot.proximity[i].value > maxVal then
+				maxVal = robot.proximity[i].value
+				maxIdx = i
+			end
+		end
+		if maxVal ~= 0 then
+			if maxIdx <= 12 then
+				-- The closest obstacle is between 0 and 180 degrees: soft turn towards the right
+				speeds = {left=WHEEL_SPEED, right=((maxIdx-1)*WHEEL_SPEED/SENSORS)}
+			else
+				-- The closest obstacle is between 180 and 360 degrees: soft turn towards the left
+				speeds = {left=((24-maxIdx)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
+			end
+		end
+	
+	end
+	return speeds
+end
+
 
 --[[ Function used to copy and sort the readings of the range and bearing sensors according to their distance.
      Each message is stored in a table composed of:
@@ -203,8 +372,20 @@ end
 		# range (the distance of the message source in cm).
 ]]
 function ParseRAB()
-	rabReadings = CopyTable(robot.range_and_bearing)
-	table.sort(rabReadings, function(a,b) return a.range < b.range)
-   return #(rabReadings)
+	robot.neighbors = {in_nest=0, explorers = 0, chain_beacons = 0, junction_beacons = 0}
+	for i=1,#robot.range_and_bearing do 
+		if (robot.range_and_bearing[i]).data[2] == STATES.EXIT_NEST.encoding then
+			robot.neighbors.in_nest = robot.neighbors.in_nest + 1 
+		end
+		if (robot.range_and_bearing[i]).data[2] == STATES.EXPLORER.encoding then
+			robot.neighbors.explorers = robot.neighbors.explorers + 1 
+		end
+		if (robot.range_and_bearing[i]).data[2] == STATES.CHAIN_BEACON.encoding then
+			robot.neighbors.chain_beacons = robot.neighbors.chain_beacons + 1 
+		end
+		if (robot.range_and_bearing[i]).data[2] == STATES.JUNCTION_BEACON.encoding then
+			robot.neighbors.junction_beacons = robot.neighbors.junction_beacons + 1 
+		end
+	end
 end
 
