@@ -33,3 +33,9 @@ function CopyTable(t)
    end
    return t2
 end
+
+--[[ Function used to convert the proximity sensor index to the corrisponding angle
+	 Beware: Approximative calculation ]]
+function IndexToRadians(index)
+   return (math.pi/#robot.proximity)*index
+end

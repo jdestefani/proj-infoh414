@@ -23,24 +23,47 @@
 -- A class is created by means of a table with the same name as the class itself
 Vector2 = {}
 -- And a metatable
-mt = {}
+Vector2mt = {}
 
 -- By adding the appropriate elements to the metatable it is possibile to override the default behavior of the operators
-mt.__add = function (a,b) return Vector2:fromXY(a.x+b.x,a.y+b.y) end
-mt.__mul = function (a,b) return String:new(string.rep(a.value, b)) end
-mt.__index = Vector2 -- redirect queries to the String table
+-- Operator overriding : + 
+Vector2mt.__add = function (a,b) return Vector2:fromXY(a.x+b.x,a.y+b.y) end
+-- Operator overriding : Binary -
+Vector2mt.__sub = function (a,b) return Vector2:fromXY(a.x-b.x,a.y-b.y) end
+-- Operator overriding : Unary -
+Vector2mt.__unm = function (a) return Vector2:fromXY(-a.x,-a.y) end
+-- Operator overriding : ==
+Vector2mt.__eq = function (a,b) return a.x == b.x and a.y == b.y end
+Vector2mt.__index = Vector2 -- redirect queries to the String table
 
-
+--[[ Constructor from polar coordinates ]]
 function Vector2:fromPolar(length,angle)
-	return setmetatable({ x = length * math.cos(angle) or 0, y = length * math.sin(angle) or 0 }, mt)
+	return setmetatable({ x = length * math.cos(angle) , y = length * math.sin(angle) }, Vector2mt)
 end
 
+--[[ Constructor from XY coordinates ]]
 function Vector2:fromXY(x_in,y_in)
-	return setmetatable({ x=x_in or 0, y=y_in or 0}, mt)
+	return setmetatable({ x=x_in , y=y_in}, Vector2mt)
 end
 
 function Vector2:toString()
-	return "[" .. self.x .. "," .. self.y .. "]"
+	return "[x=" .. self.x .. ",y=" .. self.y .. "]"
+end
+
+function Vector2:toStringPolar()
+	return "[l=" .. Vector2.length(self) .. ",a=" .. Vector2.angle(self) .. "]"
+end
+
+--[[ Constructor from polar coordinates ]]
+function Vector2:SetFromPolar(length,angle)
+	self.x = length * math.cos(angle) 
+	self.y = length * math.sin(angle)
+end
+
+--[[ Constructor from XY coordinates ]]
+function Vector2:SetFromXY(x_in,y_in)
+	self.x=x_in
+	self.y=y_in
 end
 
 --[[ Function used to compute the angle from a 2D vector ]]
@@ -55,12 +78,18 @@ end
 
 --[[ Function used to obtain the representation of the current vector in polar coordinates ]]
 function Vector2:polarVector()
-   local polar = {length=self:length(),angle=self:angle()}
+   local polar = {length=self.length(),angle=self.angle()}
    return polar
 end
 
 --[[ Function used to obtain the representation of the current vector in polar coordinates ]]
-function Vector2:rotate(angle)
+function Vector2:Rotate(angle)
    self.x = math.cos(angle)*self.x - math.sin(angle)*self.y
    self.y = math.sin(angle)*self.x + math.cos(angle)*self.y
+end
+
+--[[ Function used to obtain the representation of the current vector in polar coordinates ]]
+function Vector2:Scale(k)
+   self.x = k*self.x 
+   self.y = k*self.y 
 end

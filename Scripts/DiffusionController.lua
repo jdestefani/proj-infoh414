@@ -22,6 +22,7 @@
 
 --Path should be given with respect to the execution path of ARGoS
 dofile("./Scripts/Vector2.lua")
+dofile("./Scripts/Range.lua")
 dofile("./Scripts/SIUtils.lua")
 
 -- Sensors: 
@@ -50,13 +51,24 @@ BACK_IN_SPOT = 2,
 LEFT_IN_SPOT = 3,
 RIGHT_IN_SPOT = 4,
 OUT_OF_NEST = 5,
-IN_NEST = 6,
+FRONT_IN_NEST = 6,
+BACK_IN_NEST = 7,
+LEFT_IN_NEST = 8,
+RIGHT_IN_NEST = 9,
+IN_NEST = 10,
 }
 
 -- Rotation directions
 ROTATION_DIRECTION = {
 CLOCKWISE = 0 ,
 COUNTERCLOCKWISE = 1 ,
+}
+
+-- Obstacle types
+OBSTACLE_TYPE = {
+NO_OBSTACLE = 0 ,
+ROBOT = 1 ,
+WALL = 2,
 }
 -- Probabilities
 
@@ -81,11 +93,16 @@ COUNTERCLOCKWISE = 1 ,
 --Controller parameter
 CONTROLLER_PARAMETER = {
 RAB_THRESHOLD = 0.5 ,
-WHEEL_SPEED = 5 ,
+WHEEL_SPEED = 10,
 RANDOM_TURN_PROBABILITY = 0.1 ,
-DISTANCE_SCANNER_THRESHOLD = 110,
-SENSORS = 11
+DISTANCE_SCANNER_THRESHOLD = 80,
+SENSORS = 11,
+EXPLORER_TO_BEACON_PROBABILITY = 0.02,
+DELTA_RANGE = (math.pi/24)/2,
+BEACON_NAVIGATION_THRESHOLD = 40
 }
+
+RADIANS_RANGE = Range:new(0,math.pi)
 
 --[[ Initialization of the state of the robot ]]
 function init()
@@ -103,65 +120,66 @@ end
      It must contain the logic of your controller ]]
 function step()
 	-- 1. Sense
-	--desiredDirection = Vector2:fromPolar(1,0)
+	desiredDirection = Vector2:fromPolar(1,0)
    position = ParseGroundSensors()
-	-- Compute the vector sum among the desired direction and the resulting vector from the Proximity sensors reading
-	--desiredDirection = ParseDistanceScanner() + ParseProximitySensors()
+	
+	--log("Robot "..robotId..desiredDirection:toString())
 	ParseRAB()
 	ParseDistanceScanner()
 	
-	--speeds = ComputeSpeedFromAngle(desiredDirection:angle())
-	speeds = ProximitySensorsToSpeeds()
+	--speeds = ProximitySensorsToSpeeds()
 	
-	-- 2. Think	
-	--If the robot is going straight..
-	if speeds.left == WHEEL_SPEED and speeds.right == WHEEL_SPEED then
-		-- ...and it is trying to exit nest, take into account the readings from the distance scanner
-		if state==STATE.EXIT_NEST and frontObstacleDistance > 0 and frontObstacleDistance < 	CONTROLLER_PARAMETER.DISTANCE_SCANNER_THRESHOLD then
-			if rotation == ROTATION_DIRECTION.CLOCKWISE then
-				speeds = {left=WHEEL_SPEED, right=((4-1)*WHEEL_SPEED/SENSORS)}
-			end
-			if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
-				speeds = {left=((24-21)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
-			end
-		else
-		-- Otherwise perform random turns with a limited probability		
-			if robot.random.uniform() < CONTROLLER_PARAMETER.RANDOM_TURN_PROBABILITY then
-				local idx = robot.random.uniform(SENSORS)
-				if robot.random.uniform() < 0.5 then
-					speeds = {left=WHEEL_SPEED, right=((idx-1)*WHEEL_SPEED/SENSORS)}
-				else
-					speeds = {left=((idx-1)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
-				end
-			end
-		end
+	-- 2. Think
+	if state == STATE.EXPLORER then
+		ExplorerBehavior()
 	end
 	
-	-- If the robot has left the nest, then it becomes an explorer.
-	if( position == POSITION.OUT_OF_NEST ) then
-		state = STATES.EXPLORER
+	if state == STATE.CHAIN_BEACON then
+		isStopped = true
+		BeaconBehavior()
+		-- Broadcast navigation informations for the other robots
+		-- Eventually LJ to preserve connection and realign chain
 	end
-
+	
+	if state == STATE.EXIT_NEST then
+		ExitNestBehavior()
+	end
+	
+	-- In any case, once the nest has been quitted, avoid going back to it.
+	if( position == POSITION.FRONT_IN_NEST ) then
+		desiredDirection = Vector2:fromPolar(1,math.pi)
+	end
+	
 	-- If the robot has its left part in the spot, then turn left to completely enter it.
-	if( position == POSITION.LEFT_IN_SPOT ) then
-		speeds = {left=((7-1)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
+	-- If the robot has its right part in the nest, then turn left to drive away from it.
+	if (position == POSITION.LEFT_IN_SPOT) or (position == POSITION.RIGHT_IN_NEST) then
+		desiredDirection = Vector2:fromPolar(1,math.pi/2)
 	end
 	
 	-- If the robot has its right part in the spot, then turn right to completely enter it.
-	if( position == POSITION.RIGHT_IN_SPOT ) then
-		speeds = {left=WHEEL_SPEED, right=((7-1)*WHEEL_SPEED/SENSORS)}
+	-- If the robot has its right part in the nest, then turn left to drive away from it.
+	if (position == POSITION.RIGHT_IN_SPOT) or (position == POSITION.LEFT_IN_NEST) then
+		desiredDirection = Vector2:fromPolar(1,-math.pi/2)
 	end
 
 	-- Stop if the robot has reached the spot
 	if( position == POSITION.IN_SPOT ) then
-		state = STATES.SPOT_REACHED
-		speeds = {left=0, right=0}
+		state = STATE.SPOT_REACHED
+		isStopped = true
 	end
 
 	--3. Act
 	-- Each robot broadcast its own ID and the encoding of its current state to all the neighboring robots
 	SendMessage(robotId,state.encoding,0)
 	
+	
+	-- Compute the vector sum among the desired direction and the resulting vector from the Proximity sensors reading
+	desiredDirection = desiredDirection + ParseProximitySensors()
+	if isStopped then
+		speeds = {left = 0, right = 0}
+	else
+		speeds = ComputeSpeedsFromAngle(desiredDirection:angle())
+	end
 	-- Actuate the computed velocities on the wheels
 	robot.wheels.set_velocity(speeds.left, speeds.right)
 	
@@ -177,14 +195,15 @@ end
      automatically by ARGoS. ]]
 function reset()
 	-- Initialize controller state
-	state = EXIT_NEST
+	state = STATE.EXIT_NEST
 	if robot.random.uniform() < 0.5 then
 		rotation = ROTATION_DIRECTION.CLOCKWISE
 	else
 		rotation = ROTATION_DIRECTION.COUNTERCLOCKWISE
 	end
 	randomTurnSteps = 0
-	
+	turnCounter = 0
+	isStopped = false
 	-- Enabling of the distance scanner for further use.
 	robot.distance_scanner.enable()
 	-- Instead of having a rotating distance scanner, lock it in a way that the long range sensor is pointing in front of the robot
@@ -215,27 +234,31 @@ function LJForce(distance,epsilon,sigma)
 end
 
 --This function computes the necessary wheel speed to go in the direction of the desired angle.
-function ComputeSpeedFromAngle(angle)
-    dotProduct = 0.0;
-    KProp = 20;
-    wheelsDistance = 0.14;
+function ComputeSpeedsFromAngle(angle)
+   dotProduct = 0.0;
+   KProp = 20;
+   wheelsDistance = 0.14;
 
-    -- if the target angle is behind the robot, we just rotate, no forward motion
-    if angle > math.pi/2 or angle < -math.pi/2 then
-        dotProduct = 0.0;
-    else
-    -- else, we compute the projection of the forward motion vector with the desired angle
-        forwardVector = {math.cos(0), math.sin(0)}
-        targetVector = {math.cos(angle), math.sin(angle)}
-        dotProduct = forwardVector[1]*targetVector[1]+forwardVector[2]*targetVector[2]
-    end
+	if angle ~= 0 then
+    	-- if the target angle is behind the robot, we just rotate, no forward motion
+    	if angle > math.pi/2 or angle < -math.pi/2 then
+       	dotProduct = 0.0;
+   	else
+   	 -- else, we compute the projection of the forward motion vector with the desired angle
+       	forwardVector = {math.cos(0), math.sin(0)}
+       	targetVector = {math.cos(angle), math.sin(angle)}
+        	dotProduct = forwardVector[1]*targetVector[1]+forwardVector[2]*targetVector[2]
+    	end
 
-	 -- the angular velocity component is the desired angle scaled linearly
-    angularVelocity = KProp * angle;
-    -- the final wheel speeds are compute combining the forward and angular velocities, with different signs for the left and right wheel.
-    speeds = {dotProduct * WHEEL_SPEED - angularVelocity * wheelsDistance, dotProduct * WHEEL_SPEED + angularVelocity * wheelsDistance}
-
-    return speeds
+	 	-- the angular velocity component is the desired angle scaled linearly
+    	angularVelocity = KProp * angle;
+    	-- the final wheel speeds are compute combining the forward and angular velocities, with different signs for the left and right wheel.
+    	speeds = {left = dotProduct * CONTROLLER_PARAMETER.WHEEL_SPEED - angularVelocity * wheelsDistance, right = dotProduct * CONTROLLER_PARAMETER.WHEEL_SPEED + angularVelocity * wheelsDistance}
+	else
+	speeds = {left = CONTROLLER_PARAMETER.WHEEL_SPEED, right = CONTROLLER_PARAMETER.WHEEL_SPEED}
+	end
+   
+	return speeds
 end
 
 --[[ Function used to send a message having the format:
@@ -258,6 +281,8 @@ end
 	  Each reading is a table composed of angle in radians and distance in cm.  ]]
 function ParseDistanceScanner()
 	frontObstacleDistance = 0
+	closestWall = {angle=math.pi/2, distance = 30}
+	closestObstacleDS = {angle = 0, distance = 150}
 	--dsShortReadings = CopyTable(robot.distance_scanner.short_range)
    --dsLongReadings = CopyTable(robot.distance_scanner.long_range)
 	--table.sort(dsShortReadings, function(a,b) return a.distance < b.distance end)
@@ -266,7 +291,16 @@ function ParseDistanceScanner()
 			if robot.distance_scanner.long_range[i].angle == 0 then
 				frontObstacleDistance = robot.distance_scanner.long_range[i].distance
 			end
-		end
+			if robot.distance_scanner.long_range[i].distance > 0 and robot.distance_scanner.long_range[i].distance < closestObstacleDS.distance then
+				closestObstacleDS = robot.distance_scanner.long_range[i]
+			end
+	end
+	
+	for i=1,#robot.distance_scanner.short_range do 
+			if robot.distance_scanner.short_range[i].distance > 0 and robot.distance_scanner.short_range[i].distance < closestWall.distance then
+				closestWall = robot.distance_scanner.short_range[i]
+			end
+	end
 
 	--if #dsLongReadings ~= 0 then
 		--[[angle = dsLongReadings[1].angle]]
@@ -285,20 +319,48 @@ function ParseGroundSensors()
 		return POSITION.IN_SPOT;
 	end
 	
-	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0)) then
+	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0) and
+		(robot.motor_ground[3].value == 1) and (robot.motor_ground[4].value == 1)) then
 		return POSITION.FRONT_IN_SPOT;
 	end
 	
-	if((robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0)) then
+	if((robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0) and
+		(robot.motor_ground[1].value == 1) and (robot.motor_ground[2].value == 1)) then
 		return POSITION.BACK_IN_SPOT;
 	end
 
-	if((robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0)) then
+	if((robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0) and
+		(robot.motor_ground[1].value == 1) and (robot.motor_ground[4].value == 1)) then
 		return POSITION.LEFT_IN_SPOT;
 	end
 
-	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[4].value == 0)) then
+	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[4].value == 0) and
+		(robot.motor_ground[2].value == 1) and (robot.motor_ground[3].value == 1)) then
 		return POSITION.RIGHT_IN_SPOT;
+	end
+
+	if((robot.motor_ground[1].value > 0) and (robot.motor_ground[1].value < 1) and
+		(robot.motor_ground[2].value > 0) and (robot.motor_ground[2].value < 1) and
+		(robot.motor_ground[3].value == 1) and (robot.motor_ground[4].value == 1)) then
+		return POSITION.FRONT_IN_NEST;
+	end
+	
+	if((robot.motor_ground[3].value > 0) and (robot.motor_ground[3].value < 1) and
+		(robot.motor_ground[4].value > 0) and (robot.motor_ground[4].value < 1) and
+		(robot.motor_ground[1].value == 1) and (robot.motor_ground[2].value == 1)) then
+		return POSITION.BACK_IN_NEST;
+	end
+
+	if((robot.motor_ground[2].value > 0) and (robot.motor_ground[2].value < 1) and
+		(robot.motor_ground[3].value > 0) and (robot.motor_ground[3].value < 1) and
+		(robot.motor_ground[1].value == 1) and (robot.motor_ground[4].value == 1)) then
+		return POSITION.LEFT_IN_NEST;
+	end
+
+	if((robot.motor_ground[1].value > 0) and (robot.motor_ground[1].value < 1) and
+		(robot.motor_ground[4].value > 0) and (robot.motor_ground[4].value < 1) and
+		(robot.motor_ground[2].value == 1) and (robot.motor_ground[3].value == 1)) then
+		return POSITION.RIGHT_IN_NEST;
 	end
 
 	if((robot.motor_ground[1].value > 0) and (robot.motor_ground[1].value < 1) or
@@ -325,7 +387,8 @@ function ParseProximitySensors()
 		for i=1,#robot.proximity do 
 			--Sum up individual forces in accumulator vector
 			proximityVec = Vector2:fromPolar(proximityReadings[i].value,proximityReadings[i].angle)
-			proximityVec:rotate(math.pi/2)
+			--proximityVec:Scale(1/#proximityReadings)
+			proximityVec:Rotate(math.pi)
 			accumulator = accumulator + proximityVec
 		end
 		-- Normalization of the accumulator
@@ -338,24 +401,23 @@ function ParseProximitySensors()
 end
 
 function ProximitySensorsToSpeeds()
-	local speeds = {left=WHEEL_SPEED,right=WHEEL_SPEED}
-	local maxVal = -1
-	local maxIdx = -1
+	local speeds = {left=CONTROLLER_PARAMETER.WHEEL_SPEED,right=CONTROLLER_PARAMETER.WHEEL_SPEED}
+	closestObstaclePS = {value=-1, index=-1}
 	if not (robot.proximity == nil) then
 		for i=1,#robot.proximity do 
 			--Find maximum reading
-			if robot.proximity[i].value > maxVal then
-				maxVal = robot.proximity[i].value
-				maxIdx = i
+			if robot.proximity[i].value > closestObstaclePS.value then
+				closestObstaclePS.value = robot.proximity[i].value
+				closestObstaclePS.index = i
 			end
 		end
-		if maxVal ~= 0 then
-			if maxIdx <= 12 then
+		if closestObstaclePS.value ~= 0 then
+			if closestObstaclePS.index <= 12 then
 				-- The closest obstacle is between 0 and 180 degrees: soft turn towards the right
-				speeds = {left=WHEEL_SPEED, right=((maxIdx-1)*WHEEL_SPEED/SENSORS)}
+				speeds = {left=CONTROLLER_PARAMETER.WHEEL_SPEED, right=((closestObstaclePS.index-1)*CONTROLLER_PARAMETER.WHEEL_SPEED/CONTROLLER_PARAMETER.SENSORS)}
 			else
 				-- The closest obstacle is between 180 and 360 degrees: soft turn towards the left
-				speeds = {left=((24-maxIdx)*WHEEL_SPEED/SENSORS), right=WHEEL_SPEED}
+				speeds = {left=((24-closestObstaclePS.index)*CONTROLLER_PARAMETER.WHEEL_SPEED/CONTROLLER_PARAMETER.SENSORS), right=CONTROLLER_PARAMETER.WHEEL_SPEED}
 			end
 		end
 	
@@ -367,25 +429,168 @@ end
 --[[ Function used to copy and sort the readings of the range and bearing sensors according to their distance.
      Each message is stored in a table composed of:
 		# data (the 10-bytes message payload)
-		# horizontal_bearing (the angle between the robot local x axis and the position of the message source; the angle is on the robot's xy plane, in radians), 				 		
+		# horizontal_bearing (the angle between the robot local x axis and the position of the message source; the angle is on the robot's xy plane, in radians), 				 
 		# vertical_bearing (like the horizontal bearing, but it is the angle between the message source and the robot's xy plane)
 		# range (the distance of the message source in cm).
 ]]
 function ParseRAB()
+	closestBeacon = {distance = 150, angle = 0}
 	robot.neighbors = {in_nest=0, explorers = 0, chain_beacons = 0, junction_beacons = 0}
 	for i=1,#robot.range_and_bearing do 
-		if (robot.range_and_bearing[i]).data[2] == STATES.EXIT_NEST.encoding then
+		if (robot.range_and_bearing[i]).data[2] == STATE.EXIT_NEST.encoding then
 			robot.neighbors.in_nest = robot.neighbors.in_nest + 1 
 		end
-		if (robot.range_and_bearing[i]).data[2] == STATES.EXPLORER.encoding then
+		if (robot.range_and_bearing[i]).data[2] == STATE.EXPLORER.encoding then
 			robot.neighbors.explorers = robot.neighbors.explorers + 1 
 		end
-		if (robot.range_and_bearing[i]).data[2] == STATES.CHAIN_BEACON.encoding then
-			robot.neighbors.chain_beacons = robot.neighbors.chain_beacons + 1 
+		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_BEACON.encoding then
+			robot.neighbors.chain_beacons = robot.neighbors.chain_beacons + 1
+			if (robot.range_and_bearing[i]).range < closestBeacon.distance then
+			closestBeacon = {distance = (robot.range_and_bearing[i]).range, angle = (robot.range_and_bearing[i]).horizontal_bearing}
+			end
 		end
-		if (robot.range_and_bearing[i]).data[2] == STATES.JUNCTION_BEACON.encoding then
+		if (robot.range_and_bearing[i]).data[2] == STATE.JUNCTION_BEACON.encoding then
 			robot.neighbors.junction_beacons = robot.neighbors.junction_beacons + 1 
 		end
 	end
 end
 
+function DetectClosestObstacleType()
+	if( closestObstaclePS.index ~= 1 ) then
+		for i=1,#robot.range_and_bearing do 
+			local proximityPositionRange = Range:new(IndexToRadians(closestObstaclePS.index)-CONTROLLER_PARAMETER.DELTA_RANGE,IndexToRadians(closestObstaclePS.index)+CONTROLLER_PARAMETER.DELTA_RANGE)
+			if proximityPositionRange.WithinBoundsIncluded((robot.range_and_bearing[i]).horizontal_bearing) then
+				return OBSTACLE_TYPE.ROBOT
+			end
+		end
+	else
+		for i=1,#robot.range_and_bearing do 
+			if (robot.range_and_bearing[i]).horizontal_bearing == closestObstacleDS.angle then
+				return OBSTACLE_TYPE.ROBOT
+			end
+		end
+	end
+	return OBSTACLE_TYPE.NO_OBSTACLE
+end
+
+function ExplorerBehavior()
+-- If the closest obstacle detected using the distance scanner is within the RAB range,
+-- and at least one beacon is detected (to improve by cross-checking the distance scanner measure and the RAB measure)				
+-- If the robot is exploring and it senses an obstacle, it moves towards it to assess whether it is a robot or another obstacle
+	--[[if closestObstacleDS.distance > 0  then
+		desiredDirection = ParseProximitySensors() + Vector2:fromPolar(1,closestObstacleDS.angle)
+		-- To check whether this will suffice or rotation + moving straight is required
+		if closestObstacleDS.distance < CONTROLLER_PARAMETER.RAB_THRESHOLD then
+			if robot.neighbors.chain_beacons > 0 then
+				-- The sensed obstacle is a beacon => Decide how to align
+			else
+				-- The sensed obstacle is another object => Change direction until it is not sensed anymore
+				local obstacleDirection = Vector2:fromPolar(1,closestObstacleDS.angle)
+				desiredDirection = ParseProximitySensors() + obstacleDirection:Rotate(math.pi/2) 
+				-- To check whether this will suffice or rotation + moving straight is required
+			end
+		end
+		
+	end]]
+	if robot.neighbors.chain_beacons > 0 then
+		if closestBeacon.distance > CONTROLLER_PARAMETER.BEACON_NAVIGATION_THRESHOLD then
+			rotationCounter = 0
+			desiredDirection:SetFromPolar(1,closestBeacon.angle)
+			return
+		else
+			if rotationCounter == 0 then
+				departureTime = robot.random.uniform(150,300)
+			end
+			if rotationCounter > departureTime then
+				log("Robot "..robotId.." supposed to leave!")
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi)
+			else
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi/4)
+				rotationCounter = rotationCounter + 1
+			end
+			return
+		end 
+	end
+			
+	if robot.random.uniform() < CONTROLLER_PARAMETER.EXPLORER_TO_BEACON_PROBABILITY then
+		state = STATE.CHAIN_BEACON
+		robot.in_chain = 1
+	end
+	
+end
+
+function BeaconBehavior()
+	if robot.neighbors.chain_beacons == 0 and robot.neighbors.explorers > 0 then
+	end
+end
+
+function ExitNestBehavior()
+	-- If the robot has left the nest, then it becomes an explorer.
+	if( position == POSITION.OUT_OF_NEST ) then
+		state = STATE.EXPLORER
+		log("Robot "..robotId.." ready to explore!")
+		-- Since no camera is available, the research of a beacon will be made using the distance scanner
+		--robot.distance_scanner.set_rpm(1)
+	end
+
+	if robot.neighbors.chain_beacons > 0 then
+		if closestBeacon.distance > CONTROLLER_PARAMETER.BEACON_NAVIGATION_THRESHOLD then
+			rotationCounter = 0
+			desiredDirection:SetFromPolar(1,closestBeacon.angle)
+			return
+		else
+			if rotationCounter == 0 then
+				departureTime = robot.random.uniform(150,300)
+			end
+			if rotationCounter > departureTime then
+				log("Robot "..robotId.." supposed to leave!")
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi)
+			else
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi/4)
+				rotationCounter = rotationCounter + 1
+			end
+			return
+		end 
+	end
+--If the robot is going straight..
+	if desiredDirection:angle() == 0 then
+	-- ...and it is trying to exit nest, take into account the readings from the distance scanner
+		if frontObstacleDistance > 0 and frontObstacleDistance < CONTROLLER_PARAMETER.DISTANCE_SCANNER_THRESHOLD then
+			turnCounter = 0
+			local rotationAngle = math.pi
+			--local rotationAngle = RADIANS_RANGE.UniformRandom()
+			--log("Robot "..robotId.." long distance wall!")
+			if rotation == ROTATION_DIRECTION.CLOCKWISE then
+				desiredDirection:SetFromPolar(1,-rotationAngle)
+			end
+			
+			if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
+				desiredDirection:SetFromPolar(1,rotationAngle)
+			end
+		else
+			turnCounter = turnCounter + 1
+			
+			if(turnCounter > 100) then
+				if rotation == ROTATION_DIRECTION.CLOCKWISE then
+					desiredDirection:SetFromPolar(1,math.pi/2)
+				end
+				if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
+					desiredDirection:SetFromPolar(1,-math.pi/2)
+				end
+				if(turnCounter > 120) then 
+					turnCounter = 0
+				end
+			end
+		end
+		return
+	end
+	--if closestObstacleDS.distance > 0  then
+		--desiredDirection = ParseProximitySensors() + Vector2:fromPolar(1,closestObstacleDS.angle)
+		-- To check whether this will suffice or rotation + moving straight is required
+	--end
+	
+end
