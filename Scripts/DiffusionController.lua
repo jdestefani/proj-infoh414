@@ -39,8 +39,8 @@ STATE = {
 EXIT_NEST = {text="Exit nest", encoding=0},
 SPOT_REACHED = {text="Spot reached", encoding=1},
 CHAIN_BEACON = {text="Chain beacon", encoding=2},
-JUNCTION_BEACON = {text="Junction beacon", encoding=3},
-EXPLORER = {text="Explorer", encoding=4},
+EXPLORER = {text="Explorer", encoding=3},
+DIRECTING_TO_BEACON = {text="Directing to Beacon", encoding=4}
 }
 
 -- Readings
@@ -97,9 +97,12 @@ WHEEL_SPEED = 10,
 RANDOM_TURN_PROBABILITY = 0.1 ,
 DISTANCE_SCANNER_THRESHOLD = 80,
 SENSORS = 11,
-EXPLORER_TO_BEACON_PROBABILITY = 0.02,
+EXPLORER_TO_BEACON_PROBABILITY = 0.05,
 DELTA_RANGE = (math.pi/24)/2,
-BEACON_NAVIGATION_THRESHOLD = 40
+BEACON_NAVIGATION_THRESHOLD = 40,
+SENSING_DISTANCE = 65, --[[ [cm] d_{camera} ]]
+EXPLORER_DISTANCE = 15, --[[ [cm] d_{expl} ]]
+CHAIN_DISTANCE = 130 --[[ [cm] d_{chain} ]]
 }
 
 RADIANS_RANGE = Range:new(0,math.pi)
@@ -130,48 +133,51 @@ function step()
 	--speeds = ProximitySensorsToSpeeds()
 	
 	-- 2. Think
-	if state == STATE.EXPLORER then
+	if robot.state == STATE.EXPLORER then
 		ExplorerBehavior()
 	end
 	
-	if state == STATE.CHAIN_BEACON then
+	if robot.state == STATE.CHAIN_BEACON then
 		isStopped = true
 		BeaconBehavior()
 		-- Broadcast navigation informations for the other robots
 		-- Eventually LJ to preserve connection and realign chain
 	end
 	
-	if state == STATE.EXIT_NEST then
+	if robot.state == STATE.EXIT_NEST then
 		ExitNestBehavior()
 	end
+
+	if robot.state == STATE.DIRECTING_TO_BEACON then
+		DirectingToBeaconBehavior()
+	end
+
+	--3. Act
+	-- Each robot broadcast its own ID and the encoding of its current state to all the neighboring robots
+	SendMessage(robotId,robot.state.encoding,0)
 	
 	-- In any case, once the nest has been quitted, avoid going back to it.
 	if( position == POSITION.FRONT_IN_NEST ) then
-		desiredDirection = Vector2:fromPolar(1,math.pi)
+		desiredDirection = Vector2:fromPolar(2,math.pi)
+		logerr("Robot "..robotId.." front in nest!")
+		return
 	end
 	
 	-- If the robot has its left part in the spot, then turn left to completely enter it.
 	-- If the robot has its right part in the nest, then turn left to drive away from it.
 	if (position == POSITION.LEFT_IN_SPOT) or (position == POSITION.RIGHT_IN_NEST) then
-		desiredDirection = Vector2:fromPolar(1,math.pi/2)
+		desiredDirection = Vector2:fromPolar(2,-math.pi/2)
+		logerr("Robot "..robotId.." right in nest!")
+		return
 	end
 	
 	-- If the robot has its right part in the spot, then turn right to completely enter it.
 	-- If the robot has its right part in the nest, then turn left to drive away from it.
 	if (position == POSITION.RIGHT_IN_SPOT) or (position == POSITION.LEFT_IN_NEST) then
-		desiredDirection = Vector2:fromPolar(1,-math.pi/2)
+		desiredDirection = Vector2:fromPolar(2,math.pi/2)
+		logerr("Robot "..robotId.." left in nest!")
+		return
 	end
-
-	-- Stop if the robot has reached the spot
-	if( position == POSITION.IN_SPOT ) then
-		state = STATE.SPOT_REACHED
-		isStopped = true
-	end
-
-	--3. Act
-	-- Each robot broadcast its own ID and the encoding of its current state to all the neighboring robots
-	SendMessage(robotId,state.encoding,0)
-	
 	
 	-- Compute the vector sum among the desired direction and the resulting vector from the Proximity sensors reading
 	desiredDirection = desiredDirection + ParseProximitySensors()
@@ -183,9 +189,9 @@ function step()
 	-- Actuate the computed velocities on the wheels
 	robot.wheels.set_velocity(speeds.left, speeds.right)
 	
+	--log("Robot "..robotId..": "..robot.state.text)
 
 end
-
 
 
 --[[ This function is executed every time you press the 'reset'
@@ -195,15 +201,23 @@ end
      automatically by ARGoS. ]]
 function reset()
 	-- Initialize controller state
-	state = STATE.EXIT_NEST
+	robot.state = STATE.EXIT_NEST
 	if robot.random.uniform() < 0.5 then
 		rotation = ROTATION_DIRECTION.CLOCKWISE
 	else
 		rotation = ROTATION_DIRECTION.COUNTERCLOCKWISE
 	end
-	randomTurnSteps = 0
+	
+	position = POSITION.IN_NEST
+	noStopSteps = 0
 	turnCounter = 0
 	isStopped = false
+	isLeaving = false
+	leavingBeaconId = -1
+	rotationCounter = -1 
+	departureTime = 0
+
+
 	-- Enabling of the distance scanner for further use.
 	robot.distance_scanner.enable()
 	-- Instead of having a rotating distance scanner, lock it in a way that the long range sensor is pointing in front of the robot
@@ -312,16 +326,35 @@ end
 							2		1 
 							3	 	4
 	  Returns an encoding of the position of the robot with respect to the spot
+	  
 	]]
 function ParseGroundSensors()
+	local GREY_RANGE = Range:new(0.858039,0.958039)
+
+	--[[log("Robot "..robotId..": 1 -"..robot.motor_ground[1].value)
+	log("Robot "..robotId..": 2 -"..robot.motor_ground[2].value)
+	log("Robot "..robotId..": 3 -"..robot.motor_ground[3].value)
+	log("Robot "..robotId..": 4 -"..robot.motor_ground[4].value)]]
 	
+	if((robot.motor_ground[1].value == 1) and (robot.motor_ground[2].value == 1) and (robot.motor_ground[3].value == 1) and (robot.motor_ground[4].value == 1) ) then
+		return POSITION.OUT_OF_NEST
+	end
+	
+	if((GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
+ 		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
+		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
+		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[4].value))) then 
+		return POSITION.IN_NEST
+	end	
+
+
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0) ) then
-		return POSITION.IN_SPOT;
+		return POSITION.IN_SPOT
 	end
 	
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0) and
 		(robot.motor_ground[3].value == 1) and (robot.motor_ground[4].value == 1)) then
-		return POSITION.FRONT_IN_SPOT;
+		return POSITION.FRONT_IN_SPOT
 	end
 	
 	if((robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0) and
@@ -331,46 +364,46 @@ function ParseGroundSensors()
 
 	if((robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0) and
 		(robot.motor_ground[1].value == 1) and (robot.motor_ground[4].value == 1)) then
-		return POSITION.LEFT_IN_SPOT;
+		return POSITION.RIGHT_IN_SPOT 
 	end
 
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[4].value == 0) and
 		(robot.motor_ground[2].value == 1) and (robot.motor_ground[3].value == 1)) then
-		return POSITION.RIGHT_IN_SPOT;
+		return POSITION.LEFT_IN_SPOT
+
 	end
 
-	if((robot.motor_ground[1].value > 0) and (robot.motor_ground[1].value < 1) and
-		(robot.motor_ground[2].value > 0) and (robot.motor_ground[2].value < 1) and
-		(robot.motor_ground[3].value == 1) and (robot.motor_ground[4].value == 1)) then
+	if((GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
+ 		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
+		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
+		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[4].value))) then 
 		return POSITION.FRONT_IN_NEST;
 	end
 	
-	if((robot.motor_ground[3].value > 0) and (robot.motor_ground[3].value < 1) and
-		(robot.motor_ground[4].value > 0) and (robot.motor_ground[4].value < 1) and
-		(robot.motor_ground[1].value == 1) and (robot.motor_ground[2].value == 1)) then
+	if(not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
+ 		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
+		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
+		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[4].value))) then 
 		return POSITION.BACK_IN_NEST;
 	end
 
-	if((robot.motor_ground[2].value > 0) and (robot.motor_ground[2].value < 1) and
-		(robot.motor_ground[3].value > 0) and (robot.motor_ground[3].value < 1) and
-		(robot.motor_ground[1].value == 1) and (robot.motor_ground[4].value == 1)) then
-		return POSITION.LEFT_IN_NEST;
+	if(not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
+ 		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
+		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
+		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[4].value))) then 
+		return POSITION.RIGHT_IN_NEST
 	end
 
-	if((robot.motor_ground[1].value > 0) and (robot.motor_ground[1].value < 1) and
-		(robot.motor_ground[4].value > 0) and (robot.motor_ground[4].value < 1) and
-		(robot.motor_ground[2].value == 1) and (robot.motor_ground[3].value == 1)) then
-		return POSITION.RIGHT_IN_NEST;
-	end
-
-	if((robot.motor_ground[1].value > 0) and (robot.motor_ground[1].value < 1) or
-		(robot.motor_ground[2].value > 0) and (robot.motor_ground[2].value < 1) or
-		(robot.motor_ground[3].value > 0) and (robot.motor_ground[3].value < 1) or
-		(robot.motor_ground[4].value > 0) and (robot.motor_ground[4].value < 1)) then 
-		return POSITION.IN_NEST;
+	if((GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
+ 		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
+		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
+		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[4].value))) then
+		return POSITION.LEFT_IN_NEST
 	end
 
 	return POSITION.OUT_OF_NEST;
+
+	
 end
 
 --[[ Function used to copy and sort the readings of the proximity sensors according to their distance.
@@ -383,16 +416,16 @@ end
 function ParseProximitySensors()
 	local accumulator = Vector2:fromXY(0,0)
 	if not (robot.proximity == nil) then
-		proximityReadings = CopyTable(robot.proximity)
+		--proximityReadings = CopyTable(robot.proximity)
 		for i=1,#robot.proximity do 
 			--Sum up individual forces in accumulator vector
-			proximityVec = Vector2:fromPolar(proximityReadings[i].value,proximityReadings[i].angle)
+			proximityVec = Vector2:fromPolar(robot.proximity[i].value,robot.proximity[i].angle)
 			--proximityVec:Scale(1/#proximityReadings)
 			proximityVec:Rotate(math.pi)
 			accumulator = accumulator + proximityVec
 		end
 		-- Normalization of the accumulator
-		--accumulator = Vector2:fromPolar(accumulator:length()/#proximityReadings,accumulator:angle())
+		--accumulator = Vector2:fromPolar(accumulator:length(),accumulator:angle())
 		accumulator = Vector2:fromPolar(1,accumulator:angle())
 		--log(robotId.." "..accumulator:toString())
 		--table.sort(proximityReadings, function(a,b) return a.value < b.value end)
@@ -434,130 +467,110 @@ end
 		# range (the distance of the message source in cm).
 ]]
 function ParseRAB()
-	closestBeacon = {distance = 150, angle = 0}
-	robot.neighbors = {in_nest=0, explorers = 0, chain_beacons = 0, junction_beacons = 0}
+	repulsionVector = Vector2:fromXY(0,0)
+	closestBeacon = {id = -1, distance = 151, angle = 0}
+	robot.neighbors = {in_nest=0, explorers = 0, chain_beacons = 0}
+	sensedBeacons = {}
 	for i=1,#robot.range_and_bearing do 
 		if (robot.range_and_bearing[i]).data[2] == STATE.EXIT_NEST.encoding then
 			robot.neighbors.in_nest = robot.neighbors.in_nest + 1 
 		end
+		
 		if (robot.range_and_bearing[i]).data[2] == STATE.EXPLORER.encoding then
 			robot.neighbors.explorers = robot.neighbors.explorers + 1 
 		end
+		
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_BEACON.encoding then
 			robot.neighbors.chain_beacons = robot.neighbors.chain_beacons + 1
 			if (robot.range_and_bearing[i]).range < closestBeacon.distance then
-			closestBeacon = {distance = (robot.range_and_bearing[i]).range, angle = (robot.range_and_bearing[i]).horizontal_bearing}
+				closestBeacon = {id = (robot.range_and_bearing[i]).data[1] , distance = (robot.range_and_bearing[i]).range, angle = 	(robot.range_and_bearing[i]).horizontal_bearing}
 			end
+			sensedBeacons[(robot.range_and_bearing[i]).data[1]] = {distance = (robot.range_and_bearing[i]).range, angle = 	(robot.range_and_bearing[i]).horizontal_bearing}
+			repulsionVector = repulsionVector + Vector2:fromPolar(150/(robot.range_and_bearing[i]).range ,(robot.range_and_bearing[i]).horizontal_bearing)
 		end
-		if (robot.range_and_bearing[i]).data[2] == STATE.JUNCTION_BEACON.encoding then
-			robot.neighbors.junction_beacons = robot.neighbors.junction_beacons + 1 
-		end
+
 	end
+
 end
 
-function DetectClosestObstacleType()
-	if( closestObstaclePS.index ~= 1 ) then
-		for i=1,#robot.range_and_bearing do 
-			local proximityPositionRange = Range:new(IndexToRadians(closestObstaclePS.index)-CONTROLLER_PARAMETER.DELTA_RANGE,IndexToRadians(closestObstaclePS.index)+CONTROLLER_PARAMETER.DELTA_RANGE)
-			if proximityPositionRange.WithinBoundsIncluded((robot.range_and_bearing[i]).horizontal_bearing) then
-				return OBSTACLE_TYPE.ROBOT
+
+function ExplorerBehavior()
+
+	--[[if robot.neighbors.chain_beacons > 0 then
+		robot.state = STATE.DIRECTING_TO_BEACON
+		return 
+	end
+
+	if robot.neighbors.chain_beacons == 1 then	
+			if closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE and position ~= POSITION.IN_NEST then
+				robot.state = STATE.CHAIN_BEACON
+				isLeaving = false
+				robot.in_chain = 1
+				return
+			end
+		end
+	
+	if position ==	POSITION.IN_NEST then
+		robot.state = STATE.EXIT_NEST
+		return
+	end]]
+
+	if robot.neighbors.chain_beacons > 0 then
+		if position == POSITION.OUT_OF_NEST and (robot.neighbors.chain_beacons == 1 or closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE) then
+			robot.state = STATE.CHAIN_BEACON
+			leavingBeaconId = -1
+			return
+		end
+	end
+
+	
+
+	-- Stop if the robot has reached the spot
+	if( position == POSITION.IN_SPOT ) then
+		robot.state = STATE.SPOT_REACHED
+		isStopped = true
+	end
+
+
+	if noStopSteps < 0 then	
+		if robot.neighbors.chain_beacons == 0 and not isLeaving then	
+			if robot.random.uniform() < CONTROLLER_PARAMETER.EXPLORER_TO_BEACON_PROBABILITY and position == POSITION.OUT_OF_NEST then
+				robot.state = STATE.CHAIN_BEACON
+				isLeaving = false
+				robot.in_chain = 1
+				return
 			end
 		end
 	else
-		for i=1,#robot.range_and_bearing do 
-			if (robot.range_and_bearing[i]).horizontal_bearing == closestObstacleDS.angle then
-				return OBSTACLE_TYPE.ROBOT
-			end
-		end
+		noStopSteps = noStopSteps - 1
 	end
-	return OBSTACLE_TYPE.NO_OBSTACLE
-end
 
-function ExplorerBehavior()
--- If the closest obstacle detected using the distance scanner is within the RAB range,
--- and at least one beacon is detected (to improve by cross-checking the distance scanner measure and the RAB measure)				
--- If the robot is exploring and it senses an obstacle, it moves towards it to assess whether it is a robot or another obstacle
-	--[[if closestObstacleDS.distance > 0  then
-		desiredDirection = ParseProximitySensors() + Vector2:fromPolar(1,closestObstacleDS.angle)
-		-- To check whether this will suffice or rotation + moving straight is required
-		if closestObstacleDS.distance < CONTROLLER_PARAMETER.RAB_THRESHOLD then
-			if robot.neighbors.chain_beacons > 0 then
-				-- The sensed obstacle is a beacon => Decide how to align
-			else
-				-- The sensed obstacle is another object => Change direction until it is not sensed anymore
-				local obstacleDirection = Vector2:fromPolar(1,closestObstacleDS.angle)
-				desiredDirection = ParseProximitySensors() + obstacleDirection:Rotate(math.pi/2) 
-				-- To check whether this will suffice or rotation + moving straight is required
-			end
-		end
-		
-	end]]
-	if robot.neighbors.chain_beacons > 0 then
-		if closestBeacon.distance > CONTROLLER_PARAMETER.BEACON_NAVIGATION_THRESHOLD then
-			rotationCounter = 0
-			desiredDirection:SetFromPolar(1,closestBeacon.angle)
-			return
-		else
-			if rotationCounter == 0 then
-				departureTime = robot.random.uniform(150,300)
-			end
-			if rotationCounter > departureTime then
-				log("Robot "..robotId.." supposed to leave!")
-				desiredDirection:SetFromPolar(1,closestBeacon.angle)
-				desiredDirection:Rotate(math.pi)
-			else
-				desiredDirection:SetFromPolar(1,closestBeacon.angle)
-				desiredDirection:Rotate(math.pi/4)
-				rotationCounter = rotationCounter + 1
-			end
-			return
-		end 
-	end
-			
-	if robot.random.uniform() < CONTROLLER_PARAMETER.EXPLORER_TO_BEACON_PROBABILITY then
-		state = STATE.CHAIN_BEACON
-		robot.in_chain = 1
-	end
-	
 end
 
 function BeaconBehavior()
-	if robot.neighbors.chain_beacons == 0 and robot.neighbors.explorers > 0 then
-	end
+	
 end
 
 function ExitNestBehavior()
+	
+	if robot.neighbors.chain_beacons > 0 then
+		robot.state = STATE.DIRECTING_TO_BEACON
+		targetBeaconID = closestBeacon.id
+		return 
+	end
+	
 	-- If the robot has left the nest, then it becomes an explorer.
 	if( position == POSITION.OUT_OF_NEST ) then
-		state = STATE.EXPLORER
-		log("Robot "..robotId.." ready to explore!")
+		robot.state = STATE.EXPLORER
+		noStopSteps = 100
+		log("Robot "..robotId.." exploring!")
 		-- Since no camera is available, the research of a beacon will be made using the distance scanner
 		--robot.distance_scanner.set_rpm(1)
+		return
 	end
 
-	if robot.neighbors.chain_beacons > 0 then
-		if closestBeacon.distance > CONTROLLER_PARAMETER.BEACON_NAVIGATION_THRESHOLD then
-			rotationCounter = 0
-			desiredDirection:SetFromPolar(1,closestBeacon.angle)
-			return
-		else
-			if rotationCounter == 0 then
-				departureTime = robot.random.uniform(150,300)
-			end
-			if rotationCounter > departureTime then
-				log("Robot "..robotId.." supposed to leave!")
-				desiredDirection:SetFromPolar(1,closestBeacon.angle)
-				desiredDirection:Rotate(math.pi)
-			else
-				desiredDirection:SetFromPolar(1,closestBeacon.angle)
-				desiredDirection:Rotate(math.pi/4)
-				rotationCounter = rotationCounter + 1
-			end
-			return
-		end 
-	end
---If the robot is going straight..
-	if desiredDirection:angle() == 0 then
+	--If the robot is going straight..
+	if desiredDirection:angle() then
 	-- ...and it is trying to exit nest, take into account the readings from the distance scanner
 		if frontObstacleDistance > 0 and frontObstacleDistance < CONTROLLER_PARAMETER.DISTANCE_SCANNER_THRESHOLD then
 			turnCounter = 0
@@ -581,7 +594,7 @@ function ExitNestBehavior()
 				if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
 					desiredDirection:SetFromPolar(1,-math.pi/2)
 				end
-				if(turnCounter > 120) then 
+				if(turnCounter > robot.random.uniform(110,125)) then 
 					turnCounter = 0
 				end
 			end
@@ -593,4 +606,95 @@ function ExitNestBehavior()
 		-- To check whether this will suffice or rotation + moving straight is required
 	--end
 	
+end
+
+function DirectingToBeaconBehavior()
+		-- If the robot goes back to the nest while directing to a beacon, the priority is to exit the nest
+	--[[	if position == POSITION.IN_NEST and leavingBeaconId > 0 then
+			robot.state = STATE.EXIT_NEST
+			leavingBeaconId = -1
+			return
+		end
+
+		-- If the robot senses a beacon, directes itself toward it , unless it has decided
+		-- to leave that beacon 
+		if closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+			if closestBeacon.id ~= leavingBeaconId then
+				rotationCounter = 0
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				return
+			else
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi)
+				if position == POSITION.OUT_OF_NEST and robot.neighbors.chain_beacons == 1 then
+					robot.state = STATE.CHAIN_BEACON
+					leavingBeaconId = -1
+					return
+				end
+				-- The robot has left the beacon sensing range, it becomes an explorer
+				return
+			end
+		-- Otherwise rotate around the beacon for random time, before deciding to leave the beacon
+		else
+			local adjustDistanceVector = Vector2:fromPolar((CONTROLLER_PARAMETER.EXPLORER_DISTANCE - closestBeacon.distance)/CONTROLLER_PARAMETER.SENSING_DISTANCE,closestBeacon.angle)
+			local tangentialVector = Vector2:fromPolar(1,closestBeacon.angle)
+			tangentialVector:Rotate(math.pi/2)
+			if rotationCounter == 0 then
+				departureTime = robot.random.uniform(30,120)
+			end
+			if rotationCounter > departureTime then
+				isLeaving = true
+				leavingBeaconId = closestBeacon.id
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi)
+			else
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi/4)
+				rotationCounter = rotationCounter + 1
+			end
+			return
+		end]]
+		--if robot.random.uniform() < CONTROLLER_PARAMETER.EXPLORER_TO_BEACON_PROBABILITY and position ~= POSITION.IN_NEST and robot.neighbors.chain_beacons == 1 then
+			--robot.state = STATE.CHAIN_BEACON
+			--leavingBeaconId = -1
+			--return
+		--end
+		if position == POSITION.IN_NEST and ( leavingBeaconId > 0 or closestBeacon.id == -1)  then
+			robot.state = STATE.EXIT_NEST
+			leavingBeaconId = -1
+			return
+		end
+		
+		if isLeaving then
+			if position == POSITION.OUT_OF_NEST and (robot.neighbors.chain_beacons == 1 and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE) then
+				robot.state = STATE.CHAIN_BEACON
+				leavingBeaconId = -1
+				return
+			else
+				desiredDirection:SetFromPolar(1,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi)
+				return
+			end
+		end
+		
+		if closestBeacon.distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+			rotationCounter = 0
+			desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+			return
+		else
+			if rotationCounter == 0 then
+				departureTime = robot.random.uniform(30,120)
+			end
+			if rotationCounter > departureTime then
+				isLeaving = true
+				leavingBeaconId = closestBeacon.id
+				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi)
+			else
+				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi/4)
+				rotationCounter = rotationCounter + 1
+			end
+			
+		end
 end
