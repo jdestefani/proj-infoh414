@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/deste/workspace/INFO-H-414/INFO-H-414-SR2/src/landmarks.cpp
+landmarks.h
+/home/deste/workspace/INFO-H-414/INFO-H-414-SR2/src/landmarks.h
+argos3/core/wrappers/lua/lua_controller.h
+-
+
+/home/deste/workspace/INFO-H-414/INFO-H-414-SR2/src/landmarks.h
+argos3/core/simulator/loop_functions.h
+-
+argos3/plugins/robots/foot-bot/simulator/footbot_entity.h
+-
+fstream
+-
+

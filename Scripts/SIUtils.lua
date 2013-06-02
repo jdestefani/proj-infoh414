@@ -34,8 +34,26 @@ function CopyTable(t)
    return t2
 end
 
+function PrintTable(t)
+   for key,value in pairs(t) do
+      log(key .. " = " .. value .. ",")
+   end
+end
+
 --[[ Function used to convert the proximity sensor index to the corrisponding angle
 	 Beware: Approximative calculation ]]
 function IndexToRadians(index)
    return (math.pi/#robot.proximity)*index
 end
+
+
+--[[ Function to get the id of a beacon in the sensedBeacons table, given its ID ]]
+function FindBeaconFromId(id,sensedBeacons)
+   for key,value in pairs(sensedBeacons) do
+      if value.id == id then
+		return key
+	  end
+   end
+   return nil
+end
+
