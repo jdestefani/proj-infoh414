@@ -219,6 +219,8 @@ function reset()
 	-- Initialize controller state
 	robot.state = STATE.EXIT_NEST
 	robot.chain_id = 0
+	sensedBeacons = {}	
+
 	if robot.random.uniform() < 0.5 then
 		rotation = ROTATION_DIRECTION.CLOCKWISE
 	else
@@ -230,6 +232,7 @@ function reset()
 	turnCounter = 0
 	isStopped = false
 	isLeaving = false
+	selectedNext = false
 	leavingBeaconId = -1
 	rotationCounter = -1 
 	departureTime = 0
@@ -487,9 +490,8 @@ end
 function ParseRAB()
 	closestBeacon = {id = -1, chain_id = 0,  distance = 151, angle = 0 , type = -1}
 	farthestBeacon = {id = -1, chain_id = 0,  distance = 0, angle = 0 , type = -1}
-	robot.neighbors = {in_nest=0, explorers = 0, to_beacon = 0, chain_ends = 0, chain_members = 0,  chain_junctions = 0}
+	robot.neighbors = {in_nest=0, explorers = 0, to_beacon = 0, chain_ends = 0, chain_members = 0,  chain_junctions = 0, chain_beacons = 0}
 	sensedBeacons = {}
-
 
 	for i=1,#robot.range_and_bearing do 
 		if (robot.range_and_bearing[i]).data[2] == STATE.EXIT_NEST.encoding then
@@ -506,8 +508,8 @@ function ParseRAB()
 		
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_END.encoding then
 			robot.neighbors.chain_ends = robot.neighbors.chain_ends + 1
-			
-			sensedBeacons[(robot.range_and_bearing[i]).data[1]] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
+			sensedBeacons [(robot.range_and_bearing[i].data[1])] = 1
+			sensedBeacons[(robot.range_and_bearing[i].data[1])] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
 																					   distance = (robot.range_and_bearing[i]).range, 
 																						angle = (robot.range_and_bearing[i]).horizontal_bearing, 
 																						type = (robot.range_and_bearing[i]).data[2]}
@@ -515,8 +517,7 @@ function ParseRAB()
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_MEMBER.encoding then
 			robot.neighbors.chain_members = robot.neighbors.chain_members + 1
-			
-			sensedBeacons[(robot.range_and_bearing[i]).data[1]] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
+			sensedBeacons[(robot.range_and_bearing[i].data[1])] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
 																					   distance = (robot.range_and_bearing[i]).range, 
 																						angle = (robot.range_and_bearing[i]).horizontal_bearing, 
 																						type = (robot.range_and_bearing[i]).data[2]}
@@ -524,7 +525,7 @@ function ParseRAB()
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_JUNCTION.encoding then
 			robot.neighbors.chain_junctions = robot.neighbors.chain_junctions + 1
-			sensedBeacons[(robot.range_and_bearing[i]).data[1]] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
+			sensedBeacons[(robot.range_and_bearing[i].data[1])] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
 																					   distance = (robot.range_and_bearing[i]).range, 
 																						angle = (robot.range_and_bearing[i]).horizontal_bearing, 
 																						type = (robot.range_and_bearing[i]).data[2]}
@@ -552,52 +553,36 @@ function ParseRAB()
 		end
 	
 	end
-	 
+	robot.neighbors.chain_beacons = robot.neighbors.chain_members +
+												robot.neighbors.chain_junctions +
+												robot.neighbors.chain_ends 
 end
 
 
 function ExplorerBehavior()
 
-	--[[if robot.neighbors.chain_beacons > 0 then
+	if robot.neighbors.chain_beacons > 0 then
 		robot.state = STATE.DIRECTING_TO_BEACON
+		log("Robot "..robotId.." direction beacon!")
 		return 
 	end
-
-	if robot.neighbors.chain_beacons == 1 then	
-			if closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE and position ~= POSITION.IN_NEST then
-				robot.state = STATE.CHAIN_BEACON
-				isLeaving = false
-				robot.in_chain = 1
-				return
-			end
-		end
-	
-	if position ==	POSITION.IN_NEST then
-		robot.state = STATE.EXIT_NEST
-		return
-	end]]
 	
 	if position ==	POSITION.IN_NEST then
 		robot.state = STATE.EXIT_NEST
 		return
 	end
 
-	if position == POSITION.OUT_OF_NEST and 
-		(#sensedBeacons == 1 or closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE) then
+	--[[if position == POSITION.OUT_OF_NEST and 
+		(robot.neighbors.chain_beacons == 1 or closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE) then
 			robot.state = STATE.CHAIN_END
-			if #sensedBeacons > 0 then
+			if robot.neighbors.chain_beacons > 0 then
 				robot.chain_id = sensedBeacons[1].chain_id + 1
 			else
-				robot.chain_id = 0
+				robot.chain_id = -1
 			end
 			leavingBeaconId = -1
 			return
-	end
-	
-	if #sensedBeacons > 0 then
-		robot.state = STATE.DIRECTING_TO_BEACON
-		return 
-	end
+	end]]
 
 	--if robot.neighbors.explorers > 0 then
 	
@@ -649,7 +634,8 @@ end
 function ExitNestBehavior()
 	
 	-- If the robot senses any type of beacons, it direct itself towards it
-	if #sensedBeacons > 0 then
+	if robot.neighbors.chain_beacons > 0 then
+		log("Robot "..robotId.." direction beacon!")
 		robot.state = STATE.DIRECTING_TO_BEACON
 		targetBeaconId = closestBeacon.id  
 		return 
@@ -708,37 +694,41 @@ end
 function DirectingToBeaconBehavior()
 		local maxSensedChainId = 0
 
-		if #sensedBeacons == 0 then
+		if robot.neighbors.chain_beacons == 0 then
 			if position == POSITION.IN_NEST then
 				robot.state = STATE.EXIT_NEST
 				return
 			end
-			if position == POSITION.OUT_OF_NEST then
+			--[[if position == POSITION.OUT_OF_NEST then
 				robot.state = STATE.EXPLORER
 				return
-			end
+			end]]
 		end
 
-		if #sensedBeacons == 1 then
-			if isLeaving then
-				if position == POSITION.OUT_OF_NEST and sensedBeacons[1].distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
-					robot.state = STATE.CHAIN_END
-					robot.chain_id = sensedBeacons[1].chain_id + 1
-					log("Robot "..robotId..": Chain end.")
-					leavingBeaconId = -1
-					return
-				else
-					desiredDirection:SetFromPolar(0.9,sensedBeacons[1].angle)
-					desiredDirection:Rotate(math.pi)
-					return
-				end
+		if robot.neighbors.chain_beacons == 1 then
+			
+			if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+				robot.state = STATE.CHAIN_END
+				robot.chain_id = closestBeacon.chain_id + 1
+				robot.in_chain = 1
+				log("Robot "..robotId..": Chain end.")
+				leavingBeaconId = -1
+				return
 			end
 
-			if sensedBeacons[1] == STATE.CHAIN_END.encoding then
-				if sensedBeacons[1].distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+			if isLeaving then
+				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+				desiredDirection:Rotate(math.pi)
+				return
+			end
+
+			if closestBeacon == STATE.CHAIN_END.encoding or 
+				closestBeacon == STATE.CHAIN_MEMBER.encoding or
+				closestBeacon == STATE.CHAIN_JUNCTION.encoding then
+				if closestBeacon.distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
 					rotationCounter = 0
-					desiredDirection:SetFromPolar(0.9,sensedBeacons[1].angle)
-					currentChainId = sensedBeacons[1].chain_id
+					desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+					currentChainId = closestBeacon.chain_id
 					return
 				end
 			else
@@ -749,10 +739,10 @@ function DirectingToBeaconBehavior()
 				if rotationCounter > departureTime then
 					isLeaving = true
 					leavingBeaconId = closestBeacon.id
-					desiredDirection:SetFromPolar(0.9,targetBeacon.angle)
+					desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
 					desiredDirection:Rotate(math.pi)
 				else
-					desiredDirection:SetFromPolar(0.9,targetBeacon.angle)
+					desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
 					if rotation == ROTATION_DIRECTION.CLOCKWISE then
 						desiredDirection:Rotate(-math.pi/4)
 					end
@@ -764,26 +754,30 @@ function DirectingToBeaconBehavior()
 				return	
 			end
 			
-			if sensedBeacons[1] == STATE.CHAIN_MEMBER.encoding then
+			--[[if sensedBeacons[1] == STATE.CHAIN_MEMBER.encoding then
 			end
 			if sensedBeacons[1] == STATE.CHAIN_BEACON.encoding then
-			end
+			end]]
 		end
 
-		if #sensedBeacons > 1 then
-			for key,value in pairs(sensedBeacons) do
-				if value.chain_id >= maxSensedChainId then 
-					targetBeaconId = key
-					maxSensedChainId = value.chain_id 
-					break
+		if robot.neighbors.chain_beacons > 1 then
+			--if not selectedNext then
+				for key,value in pairs(sensedBeacons) do
+					if value.chain_id >= maxSensedChainId then 
+						targetBeaconId = key
+						maxSensedChainId = value.chain_id 
+					end
+					log("Robot "..robotId.."- Sensed chain id: "..value.chain_id)
 				end
-			end
-			if maxSensedChainId >= currentChainId then
-				targetBeacon = sensedBeacons[targetBeaconId]
-			else
-				targetBeacon = farthestBeacon
-			end
-			desiredDirection:SetFromPolar(0.9,targetBeacon.angle) 
+				--log("Robot "..robotId..": "..maxSensedChainId)
+				--[[if maxSensedChainId >= currentChainId then
+					targetBeacon = sensedBeacons[targetBeaconId]
+				--else
+					--targetBeacon = farthestBeacon
+				--end
+				--selectedNext = true
+			--end]]
+			desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle) 
 			return
 		end
 end
