@@ -82,13 +82,16 @@ function Vector2:polarVector()
    return polar
 end
 
---[[ Function used to obtain the representation of the current vector in polar coordinates ]]
+--[[ Function used to rotate the vector:
+	 # angle > 0 : Counterclockwise
+	 # angle < 0 : Clockwise
+  ]]
 function Vector2:Rotate(angle)
    self.x = math.cos(angle)*self.x - math.sin(angle)*self.y
    self.y = math.sin(angle)*self.x + math.cos(angle)*self.y
 end
 
---[[ Function used to obtain the representation of the current vector in polar coordinates ]]
+--[[ Function used to rescale the current vector ]]
 function Vector2:Scale(k)
    self.x = k*self.x 
    self.y = k*self.y 
