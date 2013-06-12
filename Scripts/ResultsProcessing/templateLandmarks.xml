@@ -8,13 +8,13 @@
     <!-- To make ARGoS faster, you can set 'threads' to some number greater than 0 -->
     <system threads="2" />
     <!-- To change the random seed for each experiment repetition, you can set 'random_seed' to whatever value you like -->
-    <experiment length="0" ticks_per_second="10" random_seed="124" />
+    <experiment length="0" ticks_per_second="10" random_seed="#seed#" />
   </framework>
 
   <!-- ****************** -->
   <!-- * Loop functions * -->
   <!-- ****************** -->
-  <loop_functions label="landmarks" output="output.txt" />
+  <loop_functions label="landmarks" output="#output_file#" />
 
   <!-- *************** -->
   <!-- * Controllers * -->
@@ -81,7 +81,7 @@
       <position method="uniform" min="-2,-5,0" max="2,-1,0" />
       <orientation method="uniform" min="0,0,0" max="360,0,0" />
       <!-- You can play with the number of foot-bots changing the 'quantity' attribute -->
-      <entity quantity="40" max_trials="10" base_num="1">
+      <entity quantity="#swarm_size#" max_trials="10" base_num="1">
         <!-- You can play with the range of the range and bearing system changing the 'rab_range' attribute
              NOTE: here it is expressed in meters, while in the controller you'll work in cm! -->
         <foot-bot id="rescuer" rab_range="1.5" controller="controller" /> 
@@ -107,12 +107,12 @@
   <!-- * Visualization * -->
   <!-- ****************** -->
   <visualization>
-    <!-- To execute ARGoS in batch without visualization, just comment out the 'qt-opengl' section -->
+    <!-- To execute ARGoS in batch without visualization, just comment out the 'qt-opengl' section 
     <qt-opengl lua_editor="true">
       <camera>
         <placement idx="0" position="-0.430336,-0.338533,9.65303" look_at="-0.430292,-0.283162,8.65457" lens_focal_length="20" />
       </camera>
-    </qt-opengl>
+    </qt-opengl>-->
   </visualization>
 
 </argos-configuration>

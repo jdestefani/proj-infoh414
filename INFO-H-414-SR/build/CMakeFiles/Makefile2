@@ -50,10 +50,10 @@ EQUALS = =
 CMAKE_EDIT_COMMAND = /usr/bin/ccmake
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/deste/workspace/INFO-H-414/INFO-H-414-SR2/src
+CMAKE_SOURCE_DIR = /home/deste/workspace/INFO-H-414/INFO-H-414-SR/src
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/deste/workspace/INFO-H-414/INFO-H-414-SR2/build
+CMAKE_BINARY_DIR = /home/deste/workspace/INFO-H-414/INFO-H-414-SR/build
 
 #=============================================================================
 # Target rules for target CMakeFiles/landmarks.dir
@@ -62,7 +62,7 @@ CMAKE_BINARY_DIR = /home/deste/workspace/INFO-H-414/INFO-H-414-SR2/build
 CMakeFiles/landmarks.dir/all:
 	$(MAKE) -f CMakeFiles/landmarks.dir/build.make CMakeFiles/landmarks.dir/depend
 	$(MAKE) -f CMakeFiles/landmarks.dir/build.make CMakeFiles/landmarks.dir/build
-	$(CMAKE_COMMAND) -E cmake_progress_report /home/deste/workspace/INFO-H-414/INFO-H-414-SR2/build/CMakeFiles  1
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/deste/workspace/INFO-H-414/INFO-H-414-SR/build/CMakeFiles  1
 	@echo "Built target landmarks"
 .PHONY : CMakeFiles/landmarks.dir/all
 
@@ -72,9 +72,9 @@ all: CMakeFiles/landmarks.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/landmarks.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/deste/workspace/INFO-H-414/INFO-H-414-SR2/build/CMakeFiles 1
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/deste/workspace/INFO-H-414/INFO-H-414-SR/build/CMakeFiles 1
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/landmarks.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/deste/workspace/INFO-H-414/INFO-H-414-SR2/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/deste/workspace/INFO-H-414/INFO-H-414-SR/build/CMakeFiles 0
 .PHONY : CMakeFiles/landmarks.dir/rule
 
 # Convenience name for target.

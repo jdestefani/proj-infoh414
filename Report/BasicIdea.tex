@@ -1,5 +1,60 @@
-\section{Basic idea}
+\section{Controller overview}
+
+According to the principles of the swarm robotics, a behavior at the swarm level should emerge from local interactions at the robot level, using information either coming from the environment or from other robots.
+To incorporate this principles in the robots' behaviors, three behavioral rules have been implemented:
+\begin{enumerate}
+  \item Obstacle avoidance based on short range information coming from the proximity sensors.
+  \item 
+\end{enumerate}
+
+The main sources of inspirations for the development of the behavior were \cite{nouyan2004chain}, \cite{nouyan2008path} and \cite{goss1992harvesting}. 
+
+
 
 \begin{equation}
   \text{Ticks per complete revolution} = \frac{\pi [rad]}{\omega [\frac{rad}{s}]} \cdot tps [\frac{tick}{s}]
 \end{equation}
+
+
+\subsubsection{Logical FSM}
+
+\begin{center}
+\begin{tikzpicture}[shorten >=1pt,node distance=5cm,on grid,auto] 
+   \node[state,initial] (Ex)   {Exploration}; 
+   \node[state] (As) [below right=of Ex] {Assessing cluster}; 
+   \node[state] (Uw) [below left=of Ex] {Unit work};
+   \node[state] (De) [below left=of As] {Decision phase};
+    \path[->] 
+    (Ex) edge [bend left]  node  {Sense light} (As)
+    (As) edge [bend left]  node  {In sensing range} (De)
+    (De) edge node [right]  {Full cluster} (Ex) 
+        edge [bend left] node {Empty stations} (Uw)
+    (Uw) edge [bend left]  node [above right]  {End work} (De) ;
+\end{tikzpicture}
+\captionof{figure}{Logical FSM for the E-puck behavior}
+\end{center}
+
+\subsubsection{Real FSM}
+
+ 
+
+\subsection{TAM}
+The task are represented by spatially distributed booths.
+
+The robots must reach and enter the booth to undertake the corresponding working activity.
+
+
+\subsubsection{Logical FSM}
+
+\begin{center}
+\begin{tikzpicture}[shorten >=1pt,node distance=3cm,on grid,auto] 
+   \node[state,initial,thick,draw=green!75,fill=green!20,] (Av)   {Available}; 
+   \node[state,thick,draw=red!75,fill=red!20] (Oc) [below right=of Av] {Occupied}; 
+   \node[state,thick,draw=yellow!75,fill=yellow!20] (Un) [below left=of Av] {Unavailable};
+    \path[->] 
+    (Av) edge [bend left]  node  {Sense Robot} (Oc)
+    (Oc) edge [bend left]  node  {$T_w$ expired} (Un)
+    (Un) edge [bend left] node [left]  {Robot not sensed} (Av);
+\end{tikzpicture}
+\captionof{figure}{Logical and Implemented FSM for the TAM behavior}
+\end{center}

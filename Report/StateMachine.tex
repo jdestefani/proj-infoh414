@@ -1,1 +1,26 @@
-\section{State machine}
+\section{Controller details}
+
+\begin{center}
+\begin{tikzpicture}[shorten >=1pt,node distance=5cm,on grid,auto] 
+   \node[state,initial] (EN)   {Exit nest}; 
+   \node[state,thick] (EX) [below=of EN] {Explorer};
+   \node[state,thick] (DtoB) [right=of EN] {Directing to Beacon};
+   \node[state,thick] (SR) [right=of DtoB] {Spot reached};
+   \node[state,accepting,thick] (CE) [below =of DtoB] {Chain end};
+   \node[state,accepting,thick] (CM) [right=of CE] {Chain member};
+   \node[state,accepting,thick] (CJ) [below left=of CM] {Chain Junction};
+    \path[->] 
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest \& $n_b = 0$} (EX)
+         edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (DtoB)
+    (EX) edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (DtoB)
+         edge [bend right]  node [below,text width=2cm]  {$n_b = 0$ \& Out of Nest \& $p_b$} (CE)
+    (CE) edge  node  {$n_b > 1$} (CM)
+         edge  node [left,text width=2cm]  {$obstacles < j_t$} (CJ)
+    (CM) edge [bend left] node [text width=2cm] {$n_b > 2 \wedge obstacles < j_t$} (CJ)
+    (DtoB) edge  node [above,text width=1.5cm]  {$n_b = 0$ \& In Nest} (EN)
+           edge  node [text width=1.5cm]  {$n_b = 0$ \& Out of Nest} (EX) 
+           edge  node [right,text width=1.5cm] {$n_b = 1$ \& Out of Nest \& $d_b > d_c$} (CE)
+           edge  node {Spot sensed} (SR);
+\end{tikzpicture}
+\captionof{figure}{Implemented FSM for the \emph{s-bot} behavior}
+\end{center}
