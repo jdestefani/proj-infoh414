@@ -43,10 +43,10 @@
         <range_and_bearing implementation="medium" medium="rab" show_rays="true" />
       </sensors>
       <!-- If you want to execute ARGoS with an empty script, use this syntax -->
-      <params />
+      <!--<params /> -->
       <!-- If you want to execute ARGoS with a script preloaded, use this syntax
            Note: the preloaded script does not appear in the Lua editor! (that's a TODO) -->
-      <!-- params script="my_script.lua" / -->
+      <params script="Scripts/DiffusionController.lua" />
     </lua_controller>
   </controllers>
 

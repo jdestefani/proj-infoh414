@@ -94,20 +94,19 @@ WALL = 2,
 
 --Controller parameter
 CONTROLLER_PARAMETER = {
-RAB_THRESHOLD = 0.5 ,
 WHEEL_SPEED = 10,
-RANDOM_TURN_PROBABILITY = 0.1 ,
 DISTANCE_SCANNER_THRESHOLD = 80,
 SENSORS = 11,
 EXPLORER_TO_BEACON_PROBABILITY = 0.05,
-DELTA_RANGE = (math.pi/24)/2,
 BEACON_NAVIGATION_THRESHOLD = 40,
 SENSING_DISTANCE = 65, --[[ [cm] d_{camera} ]]
 EXPLORER_DISTANCE = 15, --[[ [cm] d_{expl} ]]
 CHAIN_DISTANCE = 130, --[[ [cm] d_{chain} ]]
+RAB_RANGE = 150, --[[ [cm] d_{chain} ]]
 DISTANCE_SCANNER_ANGULAR_SPEED = 2*math.pi,
 JUNCTION_THRESHOLD = 0.1,
-DEPLOYMENT_DELAY = 50 --[[ [Time steps] ]]
+DEPLOYMENT_DELAY = 50, --[[ [Time steps] ]]
+NO_STOP_DELAY = 100
 }
 
 RANGE = { 
@@ -178,7 +177,7 @@ function step()
 	
 	-- In any case, once the nest has been quitted, avoid going back to it.
 	if( position == POSITION.FRONT_IN_NEST ) then
-		desiredDirection:Rotate(math.pi)
+		desiredDirection = Vector2:fromPolar(2,math.pi)
 		logerr("Robot "..robotId.." front in nest!")
 		return
 	end
@@ -199,12 +198,6 @@ function step()
 		return
 	end
 
-	-- Stop if the robot has reached the spot
-	if( position == POSITION.IN_SPOT ) then
-		robot.state = STATE.SPOT_REACHED
-		isStopped = true
-		spotFound = true
-	end
 	
 	-- Each robot broadcast its own ID and the encoding of its current state to all the neighboring robots
 	SendMessage(robotId,robot.state.encoding,robot.chain_id,spotFound)
@@ -266,6 +259,7 @@ function reset()
 	readingsCounter = 0
 	obstaclePercentage = 1
 	stepsCounter = 0
+	currMaxChainId = 0
 
 	-- Enabling of the distance scanner for further use.
 	robot.distance_scanner.enable()
@@ -406,11 +400,13 @@ function ParseDistanceScanner()
 		end			
 	end
 
-	if scalingFactor > 0 then
-		accumulator:Scale(1/scalingFactor)
-	end
+	--if scalingFactor > 0 then
+		--accumulator:Scale(0.4/scalingFactor)
+	--end
 	
-	return accumulator
+	--return accumulator
+	
+	return Vector2:fromPolar(0.6,accumulator:angle())
 
 end
 
@@ -518,7 +514,7 @@ function ParseProximitySensors()
 		end
 		-- Normalization of the accumulator
 		--accumulator = Vector2:fromPolar(accumulator:length(),accumulator:angle())
-		accumulator = Vector2:fromPolar(1,accumulator:angle())
+		accumulator = Vector2:fromPolar(1.5,accumulator:angle())
 		--log(robotId.." "..accumulator:toString())
 		--table.sort(proximityReadings, function(a,b) return a.value < b.value end)
 	end
@@ -689,11 +685,17 @@ end
 
 function ChainEndBehavior()
 
-	if obstaclePercentage < CONTROLLER_PARAMETER.JUNCTION_THRESHOLD then
+	--[[if obstaclePercentage < CONTROLLER_PARAMETER.JUNCTION_THRESHOLD and robot.state ~= STATE.CHAIN_JUNCTION then
 		robot.state = STATE.CHAIN_JUNCTION
 		log("Robot "..robotId..": Chain junction.")
 		return
-	end
+	end]]
+	
+	--[[if robot.neighbors.chain_beacons == 1 then
+		isStopped = false
+		desiredDirection:SetFromPolar(1,closestBeacon.angle)
+		desiredDirection:Rotate(math.pi/4)
+	end]]
 
 	if robot.neighbors.chain_beacons > 1 then
 		robot.state = STATE.CHAIN_MEMBER
@@ -712,15 +714,16 @@ function ChainMemberBehavior()
 		end
 	end
 
-	if obstaclePercentage < CONTROLLER_PARAMETER.JUNCTION_THRESHOLD then
+	--[[if obstaclePercentage < CONTROLLER_PARAMETER.JUNCTION_THRESHOLD and robot.state ~= STATE.CHAIN_JUNCTION then
 		robot.state = STATE.CHAIN_JUNCTION
 		log("Robot "..robotId..": Chain junction.")
 		return
-	end
+	end]]
 
-	--[[if robot.neighbors.chain_beacons > 2 then
-		robot.state = STATE.CHAIN_JUNCTION
-		log("Robot "..robotId..": Chain junction.")
+	--[[if robot.neighbors.chain_beacons > 2 and closestBeacon.distance < CONTROLLER_PARAMETER.SENSING_DISTANCE then
+		log("Moving again:Robot "..robotId.." direction beacon!")
+		robot.state = STATE.DIRECTING_TO_BEACON
+		targetBeaconId = farthestBeacon.id  
 		return
 	end]]
 end
@@ -750,7 +753,7 @@ function ExitNestBehavior()
 	-- If the robot has left the nest, then it becomes an explorer.
 	if( position == POSITION.OUT_OF_NEST ) then
 		robot.state = STATE.EXPLORER
-		noStopSteps = 100
+		noStopSteps = CONTROLLER_PARAMETER.NO_STOP_DELAY
 		log("Robot "..robotId.." exploring!")
 		-- Since no camera is available, the research of a beacon will be made using the distance scanner
 		--robot.distance_scanner.set_rpm(1)
@@ -803,6 +806,13 @@ function DirectingToBeaconBehavior()
 			robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
 		end
 
+		-- Stop if the robot has reached the spot
+		if( position == POSITION.IN_SPOT ) then
+			robot.state = STATE.SPOT_REACHED
+			isStopped = true
+			spotFound = true
+		end
+
 		if robot.neighbors.chain_beacons == 0 then
 			if position == POSITION.IN_NEST then
 				robot.state = STATE.EXIT_NEST
@@ -818,73 +828,155 @@ function DirectingToBeaconBehavior()
 
 			if position == POSITION.IN_NEST then
 				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
-				currentChainId = closestBeacon.chain_id
+				currentChainId = 0
 				return
 			end
-			
-			if (closestBeacon.type == STATE.CHAIN_END.encoding or
-				 closestBeacon.type == STATE.CHAIN_JUNCTION.encoding) then
-				if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
-					robot.state = STATE.CHAIN_END
-					robot.chain_id = closestBeacon.chain_id + 1
-					robot.in_chain = 1
-					robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
-					log("Robot "..robotId..": Chain end.")
-					leavingBeaconId = -1
-					return
-				end
+
+			if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+				robot.state = STATE.CHAIN_END
+				robot.chain_id = closestBeacon.chain_id + 1
+				robot.in_chain = 1
+				robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
+				log("Robot "..robotId..": Chain end.")
+				leavingBeaconId = -1
+				return
 			end
 
 			if isLeaving then
 				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
 				desiredDirection:Rotate(math.pi)
 				return
-			end
+			end			
 
-			if closestBeacon.spotFound then
+			if closestBeacon.spotFound == 1 then
 				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
 				desiredDirection:Rotate(math.pi)
 				return 
 			end
 
-			if closestBeacon.type == STATE.CHAIN_END.encoding or
-				closestBeacon.type == STATE.CHAIN_JUNCTION.encoding --[[or 
-				closestBeacon.type == STATE.CHAIN_MEMBER.encoding]] then
-				if closestBeacon.distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
-					rotationCounter = 0
-					desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
-					currentChainId = closestBeacon.chain_id
-					return
-				end
-			else
-				
-				if rotationCounter == 0 then
-					--departureTime = robot.random.uniform(30,120)
-					  departureTime = robot.random.uniform(15,120)
-				end
-				
-				if rotationCounter > departureTime then
-					isLeaving = true
-					leavingBeaconId = closestBeacon.id
-					desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
-					desiredDirection:Rotate(math.pi)
-				else
-					desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
-					if rotation == ROTATION_DIRECTION.CLOCKWISE then
-						desiredDirection:Rotate(-math.pi/4)
-					end
-					if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
-						desiredDirection:Rotate(math.pi/4)
-					end
-					rotationCounter = rotationCounter + 1
-				end
-				return	
-			end
-			
-			--[[if closestBeacon.type == STATE.CHAIN_JUNCTION.encoding then
+			if closestBeacon.id ~= targetBeaconId then
 				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
 				desiredDirection:Rotate(math.pi)
-			end]]
+				return
+			end
+
+			if closestBeacon.chain_id > currentChainId then
+				currentChainId = closestBeacon.chain_id
+				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+				return 
+			else
+				if closestBeacon.chain_id == currentChainId then
+					if closestBeacon.type == STATE.CHAIN_MEMBER.encoding then
+						if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+							robot.state = STATE.CHAIN_END
+							robot.chain_id = closestBeacon.chain_id + 1
+							robot.in_chain = 1
+							robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
+							log("Robot "..robotId..": Chain end.")
+							leavingBeaconId = -1
+							return
+						end
+						if closestBeacon.distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+							targetBeaconId = closestBeacon.id
+							rotationCounter = 0
+							desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+							return
+						else
+							desiredDirection:SetFromPolar(1,closestBeacon.angle)
+							desiredDirection:Rotate(math.pi/2)
+							desiredDirection = desiredDirection + Vector2:fromPolar((closestBeacon.distance - 30)/CONTROLLER_PARAMETER.SENSING_DISTANCE,closestBeacon.angle)
+							desiredDirection:SetFromPolar(0.9,desiredDirection:angle())
+							return	
+						end
+						
+					end
+
+					if closestBeacon.type == STATE.CHAIN_JUNCTION.encoding then
+						if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+							robot.state = STATE.CHAIN_END
+							robot.chain_id = closestBeacon.chain_id + 1
+							robot.in_chain = 1
+							robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
+							log("Robot "..robotId..": Chain end.")
+							leavingBeaconId = -1
+							return
+						end
+						if closestBeacon.distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+							targetBeaconId = closestBeacon.id
+							desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+							return
+						else
+							desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+							desiredDirection:Rotate(math.pi)
+							return	
+						end
+						
+					end
+
+					if closestBeacon.type == STATE.CHAIN_END.encoding --[[or 
+						closestBeacon.type == STATE.CHAIN_MEMBER.encoding]] then
+						if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+							robot.state = STATE.CHAIN_END
+							robot.chain_id = closestBeacon.chain_id + 1
+							robot.in_chain = 1
+							robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
+							log("Robot "..robotId..": Chain end.")
+							leavingBeaconId = -1
+							return
+						end
+
+						if closestBeacon.distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+							--log("Robot "..robotId..": I should go to beacon.")
+							rotationCounter = 0
+							desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+							currentChainId = closestBeacon.chain_id
+							targetBeaconId = closestBeacon.id
+							return
+						else
+							isLeaving = true
+							leavingBeaconId = closestBeacon.id
+							desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+							desiredDirection:Rotate(math.pi)
+							return
+							--[[if rotationCounter == 0 then
+							--departureTime = robot.random.uniform(30,120)
+					 		 departureTime = robot.random.uniform(15,120)
+							end
+				
+							if rotationCounter > departureTime then
+								isLeaving = true
+								leavingBeaconId = closestBeacon.id
+								desiredDirection:SetFromPolar(1.2,closestBeacon.angle)
+								desiredDirection:Rotate(math.pi)
+							else
+								desiredDirection:SetFromPolar(1.2,closestBeacon.angle)
+								if rotation == ROTATION_DIRECTION.CLOCKWISE then
+									desiredDirection:Rotate(-math.pi/4)
+								end
+								if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
+									desiredDirection:Rotate(math.pi/4)
+								end
+								rotationCounter = rotationCounter + 1
+							end
+						return]]	
+						end
+					end
+				else
+					desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
+					desiredDirection:Rotate(math.pi)
+					if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+						robot.state = STATE.CHAIN_END
+						robot.chain_id = closestBeacon.chain_id + 1
+						robot.in_chain = 1
+						robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
+						log("Robot "..robotId..": Chain end.")
+						leavingBeaconId = -1
+						return
+					end
+					return
+				end
+			end
+			
 			
 		end
 
@@ -894,86 +986,117 @@ function DirectingToBeaconBehavior()
 			--end
 			if position == POSITION.IN_NEST then
 				desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
-				currentChainId = closestBeacon.chain_id
+				currentChainId = 0
 				return
 			end
 			
-			--If more than one beacon is sensed, anal
+			--If more than one beacon is sensed, choose which one will be the target beacon
 			for key,value in pairs(sensedBeacons) do
 				if value.chain_id >= maxSensedChainId then 
 					targetBeaconId = key
 					maxSensedChainId = value.chain_id
-
 				end
-				if value.type == STATE.CHAIN_END.encoding then 
-					desiredDirection:SetFromPolar(0.9,sensedBeacons[key].angle) 
-					return
-				end
+				
 				if key == leavingBeaconId then
 					desiredDirection:SetFromPolar(0.9,sensedBeacons[key].angle)
 					desiredDirection:Rotate(math.pi) 
 					return
 				end
-			end
-			
-			if sensedBeacons[targetBeaconId].type == STATE.CHAIN_END.encoding or
-				sensedBeacons[targetBeaconId].type == STATE.CHAIN_JUNCTION.encoding --[[or 
-				closestBeacon.type == STATE.CHAIN_MEMBER.encoding or
-				closestBeacon.type == STATE.CHAIN_JUNCTION.encoding]] then
-				if sensedBeacons[targetBeaconId].distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
-					rotationCounter = 0
-					desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
-					currentChainId = sensedBeacons[targetBeaconId].chain_id
+				
+				if value.type == STATE.CHAIN_END.encoding then 
+					desiredDirection:SetFromPolar(0.9,sensedBeacons[key].angle) 
 					return
 				end
-			else
-				
-				if rotationCounter == 0 then
-					--departureTime = robot.random.uniform(30,120)
-					  departureTime = robot.random.uniform(15,120)
-				end
-				
-				if rotationCounter > departureTime then
-					isLeaving = true
-					leavingBeaconId = closestBeacon.id
-					desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
-					desiredDirection:Rotate(math.pi)
-				else
-					desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
-					if rotation == ROTATION_DIRECTION.CLOCKWISE then
-						desiredDirection:Rotate(-math.pi/4)
-					end
-					if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
-						desiredDirection:Rotate(math.pi/4)
-					end
-					rotationCounter = rotationCounter + 1
-				end
-				return	
 			end
-			
-			
-			desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
-			if sensedBeacons[targetBeaconId].spotFound then
+
+			if sensedBeacons[targetBeaconId].spotFound == 1 then
+				desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
 				desiredDirection:Rotate(math.pi)
 				return 
 			end
+
+			if sensedBeacons[targetBeaconId].chain_id > currentChainId then
+				currentChainId = sensedBeacons[targetBeaconId].chain_id
+				desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle) 
+			else
+				if sensedBeacons[targetBeaconId].chain_id == currentChainId then
+					if sensedBeacons[targetBeaconId].type == STATE.CHAIN_MEMBER.encoding then
+						if sensedBeacons[targetBeaconId].distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+							rotationCounter = 0
+							desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
+							return
+						else
+							desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
+							desiredDirection:Rotate(math.pi/2)
+							return	
+						end
+					end
+					
+					if sensedBeacons[targetBeaconId].type == STATE.CHAIN_JUNCTION.encoding then
+						if sensedBeacons[targetBeaconId].distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+							rotationCounter = 0
+							desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
+							return
+						else
+							desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
+							desiredDirection:Rotate(math.pi)
+							return	
+						end
+					end
+					
+
+					if sensedBeacons[targetBeaconId].type == STATE.CHAIN_END.encoding  then
+						if sensedBeacons[targetBeaconId].distance > CONTROLLER_PARAMETER.SENSING_DISTANCE then
+							rotationCounter = 0
+							desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
+							return
+						else
+							isLeaving = true
+							leavingBeaconId = closestBeacon.id
+							desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
+							desiredDirection:Rotate(math.pi)
+							return
+							--[[if rotationCounter == 0 then
+					  			departureTime = robot.random.uniform(15,120)
+							end
+				
+							if rotationCounter > departureTime then
+								isLeaving = true
+								leavingBeaconId = closestBeacon.id
+								desiredDirection:SetFromPolar(1.2,sensedBeacons[targetBeaconId].angle)
+								desiredDirection:Rotate(math.pi)
+							else
+								desiredDirection:SetFromPolar(1.2,sensedBeacons[targetBeaconId].angle)
+								if rotation == ROTATION_DIRECTION.CLOCKWISE then
+									desiredDirection:Rotate(-math.pi/4)
+								end
+								if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
+									desiredDirection:Rotate(math.pi/4)
+								end
+								rotationCounter = rotationCounter + 1
+							end
+							return]]	
+						end
+					end 
+				else
+					desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
+					desiredDirection:Rotate(math.pi)
+					if position == POSITION.OUT_OF_NEST and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
+						robot.state = STATE.CHAIN_END
+						robot.chain_id = closestBeacon.chain_id + 1
+						robot.in_chain = 1
+						robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
+						log("Robot "..robotId..": Chain end.")
+						leavingBeaconId = -1
+						return
+					end
+					return
+				end
+			end
+
+			
+			desiredDirection:SetFromPolar(0.9,sensedBeacons[targetBeaconId].angle)
 			return
-			
-			
-				
-				--log("Robot "..robotId..": "..maxSensedChainId)
-				--[[if maxSensedChainId >= currentChainId then
-					targetBeacon = sensedBeacons[targetBeaconId]
-				--else
-					--targetBeacon = farthestBeacon
-				--end
-				--selectedNext = true
-			--end]]
-				
-			--else
-				--desiredDirection:SetFromPolar(0.9,closestBeacon.angle)
-				--desiredDirection:Rotate(math.pi/2)
-			--end
 		end
 end
 		

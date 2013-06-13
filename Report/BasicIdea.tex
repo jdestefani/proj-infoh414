@@ -1,60 +1,136 @@
 \section{Controller overview}
 
-According to the principles of the swarm robotics, a behavior at the swarm level should emerge from local interactions at the robot level, using information either coming from the environment or from other robots.
-To incorporate this principles in the robots' behaviors, three behavioral rules have been implemented:
+The robot controller has been structured according to the sense-think-act paradigm, at each time step, robots will:
 \begin{enumerate}
-  \item Obstacle avoidance based on short range information coming from the proximity sensors.
-  \item 
+  \item \emph{(Sense)} - Read the informations collected by the available sensors (proximity, ground, distance scanner and Range and Bearing)
+  \item \emph{(Think)} - Determine the values to send to the actuators according to the state machine defined in \nameref{sec:sm} and the information from the sensors.
+  \item \emph{(Act)} - Control the actuators (wheels) using the values determined in the previous step.
 \end{enumerate}
 
-The main sources of inspirations for the development of the behavior were \cite{nouyan2004chain}, \cite{nouyan2008path} and \cite{goss1992harvesting}. 
-
-
-
+According to the principles of the swarm robotics, a behavior at the swarm level should emerge from local interactions at the robot level, using information either coming from the environment or from other robots.
+These interactions have been modeled using a potential-field approach (cf.\cite{howard2002mobile}), based on the readings from the sensors.
+These virtual-potential fields $U_i$ are defined on the whole environment and robots are able to compute locally the force $\mathbf{F}_i$ resulting from the interaction with the corresponding field as:
 \begin{equation}
-  \text{Ticks per complete revolution} = \frac{\pi [rad]}{\omega [\frac{rad}{s}]} \cdot tps [\frac{tick}{s}]
+  \mathbf{F}_i = -\nabla U_i
 \end{equation}
+With this approach, it is possible to explicitly construct a field $U_i$ to induce a certain behavior on the robot.
+For this purpose, the following virtual field have been defined:
+\begin{itemize}
+  \item Obstacle avoidance - $U_{obs}$
+  \item Distance scanner - $U_{ds}$
+  \item Beacon attraction - $U_{ba}$
+  \item Beacon repulsion - $U_{br}$
+  \item Beacon proximity - $U_{bp}$
+\end{itemize} 
 
+The effects of each of these fields on the robot will be described in detail in the \nameref{sec:sm}.
 
-\subsubsection{Logical FSM}
+The general idea of the method is that the robots should first quit the nest environment (where they are initially deployed), characterized by four surrounding walls, one of them containing an opening to let the robot move outside, and a dark grey floor, in order to start the exploration phase required to find the target spots.
 
-\begin{center}
-\begin{tikzpicture}[shorten >=1pt,node distance=5cm,on grid,auto] 
-   \node[state,initial] (Ex)   {Exploration}; 
-   \node[state] (As) [below right=of Ex] {Assessing cluster}; 
-   \node[state] (Uw) [below left=of Ex] {Unit work};
-   \node[state] (De) [below left=of As] {Decision phase};
-    \path[->] 
-    (Ex) edge [bend left]  node  {Sense light} (As)
-    (As) edge [bend left]  node  {In sensing range} (De)
-    (De) edge node [right]  {Full cluster} (Ex) 
-        edge [bend left] node {Empty stations} (Uw)
-    (Uw) edge [bend left]  node [above right]  {End work} (De) ;
-\end{tikzpicture}
-\captionof{figure}{Logical FSM for the E-puck behavior}
-\end{center}
+Moreover, in order to reduce the interference phenomenon at the exit of the nest, that could arise from a contemporaneous activation of the robots, a sequential deployment mechanism, based on the robot id has been developed.
 
-\subsubsection{Real FSM}
+After exiting the nest, the agents should explore the environment, either individually (as \emph{explorers}) or using the gathered collective knowledge of the environment (i.e. the chain).
+Indeed, the exploration of the environment should profit of the already available information.
 
- 
+Hence, if a chain is already formed, the robots will follow it until the opposite end is reached, then will decide how to connect to it.
 
-\subsection{TAM}
-The task are represented by spatially distributed booths.
+If no information is available, the robot could decide (stochastically) to become a starting point for a new chain in the environment. 
 
-The robots must reach and enter the booth to undertake the corresponding working activity.
+The chain will then be composed by three different kind of robots:
+\begin{itemize}
+  \item \textbf{(E) - Chain end:} Any robot connected to at most one other agent.
+  \item \textbf{(M) -Chain member:} Any robot connected to exactly two agents.
+  \item \textbf{(J) -Chain junction:} Robot that will act as bifurcation for the chain.
+\end{itemize}
 
-
-\subsubsection{Logical FSM}
+The actual chain formation behavior is driven by the following rules:
+\begin{enumerate}
+  \item If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain member have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a chain end.
+  \item If the \textbf{nest} has been \textbf{left}, and \textbf{at least one} chain member has been \textbf{sensed}, direct toward it, guided by the beacon attraction field ($U_ba$).
+  \item Once arrived to the beacon:
+    \begin{itemize}
+      \item If it is a chain \textbf{end} or a chain \textbf{junction}, rotate around it for a random number of time steps, drawn uniformly in the range $(15,120)$, based on the beacon proximity field $U_{bp}$, then move away from it using the force generated by beacon repulsion field $U_{br}$.
+      \item If it is a chain \textbf{member}, move perpendicularly with respect to it.
+      \item If \textbf{more than one} beacon is \textbf{sensed}, move towards the one having the highest id value following $U_{ba}$ field.
+    \end{itemize}
+    \item If the distance from the beacon that the robot has decided to leave is greater than $d_chain$ and a a single beacon is sensed, then stop and become a chain end.
+\end{enumerate}
 
 \begin{center}
 \begin{tikzpicture}[shorten >=1pt,node distance=3cm,on grid,auto] 
-   \node[state,initial,thick,draw=green!75,fill=green!20,] (Av)   {Available}; 
-   \node[state,thick,draw=red!75,fill=red!20] (Oc) [below right=of Av] {Occupied}; 
-   \node[state,thick,draw=yellow!75,fill=yellow!20] (Un) [below left=of Av] {Unavailable};
-    \path[->] 
-    (Av) edge [bend left]  node  {Sense Robot} (Oc)
-    (Oc) edge [bend left]  node  {$T_w$ expired} (Un)
-    (Un) edge [bend left] node [left]  {Robot not sensed} (Av);
+   \node[state,accepting] (R1)   {$E_0$}; 
+   \node[state,thick] (R2) [right=of R1] {$M_1$};
+   \node[state,thick] (R3) [right=of R2] {$J_2$};
+   \node[state,accepting,thick] (R4) [above right=of R3] {$E_3$};
+   \node[state,thick] (R5) [below right=of R3] {$M_3$};
+   \node[state,accepting,thick] (R6) [right=of R5] {$E_4$};
+    \path[]
+    (R1) edge (R2)
+    (R2) edge (R3)
+    (R3) edge (R4)
+    (R3) edge (R5)
+    (R5) edge (R6);
 \end{tikzpicture}
-\captionof{figure}{Logical and Implemented FSM for the TAM behavior}
+\captionof{figure}{Chain example with nodes labeling and id}
 \end{center}
+
+
+
+\subsection{References}
+
+Concerning the chain formation rules, the main sources of inspiration were \cite{nouyan2004chain}, \cite{nouyan2008path} which helped me to better understand the chain structure (in particular, how to distinguish elements in the chain) and the chain navigation behavior and \cite{goss1992harvesting} for defining the conditions to extend the chain.
+
+Furthermore, the idea of an incremental deployment has been taken from \cite{stirling2013energy}.
+While in \cite{stirling2013energy} the incremental deployment was used to limit energy consumption in the deployment phase, here the same idea is used to prevent the interference phenomenon that could occur at the nest exit.
+In fact, whenever a relevant number of robots (10+) wants to exit the nest at the same time, the agent will spend more time performing obstacle avoidance with respect to one another, rather than actually exiting the nest.
+
+
+
+
+%\begin{equation}
+  %\text{Ticks per complete revolution} = \frac{\pi [rad]}{\omega [\frac{rad}{s}]} \cdot tps [\frac{tick}{s}]
+%\end{equation}
+
+
+% \subsubsection{Logical FSM}
+
+% \begin{center}
+% \begin{tikzpicture}[shorten >=1pt,node distance=5cm,on grid,auto] 
+%    \node[state,initial] (Ex)   {Exploration}; 
+%    \node[state] (As) [below right=of Ex] {Assessing cluster}; 
+%    \node[state] (Uw) [below left=of Ex] {Unit work};
+%    \node[state] (De) [below left=of As] {Decision phase};
+%     \path[->] 
+%     (Ex) edge [bend left]  node  {Sense light} (As)
+%     (As) edge [bend left]  node  {In sensing range} (De)
+%     (De) edge node [right]  {Full cluster} (Ex) 
+%         edge [bend left] node {Empty stations} (Uw)
+%     (Uw) edge [bend left]  node [above right]  {End work} (De) ;
+% \end{tikzpicture}
+% \captionof{figure}{Logical FSM for the E-puck behavior}
+% \end{center}
+
+% \subsubsection{Real FSM}
+
+ 
+
+% \subsection{TAM}
+% The task are represented by spatially distributed booths.
+
+% The robots must reach and enter the booth to undertake the corresponding working activity.
+
+
+% \subsubsection{Logical FSM}
+
+% \begin{center}
+% \begin{tikzpicture}[shorten >=1pt,node distance=3cm,on grid,auto] 
+%    \node[state,initial,thick,draw=green!75,fill=green!20,] (Av)   {Available}; 
+%    \node[state,thick,draw=red!75,fill=red!20] (Oc) [below right=of Av] {Occupied}; 
+%    \node[state,thick,draw=yellow!75,fill=yellow!20] (Un) [below left=of Av] {Unavailable};
+%     \path[->] 
+%     (Av) edge [bend left]  node  {Sense Robot} (Oc)
+%     (Oc) edge [bend left]  node  {$T_w$ expired} (Un)
+%     (Un) edge [bend left] node [left]  {Robot not sensed} (Av);
+% \end{tikzpicture}
+% \captionof{figure}{Logical and Implemented FSM for the TAM behavior}
+% \end{center}

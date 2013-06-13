@@ -81,7 +81,7 @@
       <position method="uniform" min="-2,-5,0" max="2,-1,0" />
       <orientation method="uniform" min="0,0,0" max="360,0,0" />
       <!-- You can play with the number of foot-bots changing the 'quantity' attribute -->
-      <entity quantity="40" max_trials="10" base_num="1">
+      <entity quantity="35" max_trials="10" base_num="1">
         <!-- You can play with the range of the range and bearing system changing the 'rab_range' attribute
              NOTE: here it is expressed in meters, while in the controller you'll work in cm! -->
         <foot-bot id="rescuer" rab_range="1.5" controller="controller" /> 
