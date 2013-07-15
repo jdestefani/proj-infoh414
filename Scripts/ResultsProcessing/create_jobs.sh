@@ -42,8 +42,8 @@ echo "################################################################"
 echo ""
 
 # Random is has to be given as the only parameter
-if [ $# -ne 5 ]; then
-            echo "[ERROR] Usage - $0 <experiment_name> <template_file> <swarm_size> <nruns> <seed>"
+if [ $# -ne 4 ]; then
+            echo "[ERROR] Usage - $0 <experiment_name> <template_file> <swarm_size> <nruns>"
             exit 1
 else
 EXPERIMENT_NAME=${1}
@@ -70,16 +70,16 @@ setup_jobs ${RESULTSDIR}${EXPERIMENT_NAME}"/" ${XMLDIR}
 
 for counter in `seq 1 $RUNS`
 do
-	SEED=${RANDOM}
+    SEED=${RANDOM}
     #Build the configuration file name by composing the directory, the experiment name and the parameters to the experiment 
-    PARAMETERS=${SWARM_SIZE}"_seed-"${RANDOM}
+    PARAMETERS=${SWARM_SIZE}"_seed-"${SEED}
     XML_FILENAME=${XMLDIR}${EXPERIMENT_NAME}${PARAMETERS}".xml"
     
 	echo "Generating XML file: "${XML_FILENAME}
 	echo ${TEMPLATE_FILE}
         #Reg-exp substitution to actually create the configuration file
 	touch ${XML_FILENAME}
-        sed -e "s/#seed#/${counter}/"                    				\
+        sed -e "s/#seed#/${SEED}/"                    				\
         -e "s/#swarm_size#/${SWARM_SIZE}/"         						\
         -e "s/#output_file#/${EXPERIMENT_NAME}${PARAMETERS}.txt/"   \
         < ${TEMPLATE_FILE} > ${XML_FILENAME}
@@ -87,7 +87,7 @@ do
 	echo "Executing simulation:"
 	echo ""
 	#Launch of each job separately using the xml file generated in the previous step
-	argos3 -c ${XML_FILENAME}
+	#argos3 -c ${XML_FILENAME}
  	#echo "qsub ./run_job.sh ${XML_FILENAME} ${EXPERIMENT_NAME}${PARAMETERS} ${RESULTSDIR}${EXPERIMENT_NAME}"
  	echo ""
         
