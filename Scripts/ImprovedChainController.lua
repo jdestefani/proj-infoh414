@@ -42,7 +42,8 @@ CHAIN_END = {text="Chain end", encoding=2},
 CHAIN_MEMBER = {text="Chain member", encoding=3},
 CHAIN_JUNCTION = {text="Chain junction", encoding=4},
 CHAIN_FOLLOWING = {text="Chain following", encoding=5},
-ATTACHING = {text="Attaching", encoding=6}
+ATTACHING = {text="Attaching", encoding=6},
+EXPLORER = {text="Explorer", encoding=7}
 }
 
 -- Readings
@@ -81,13 +82,13 @@ DISTANCE_SCANNER_THRESHOLD = 80,
 SENSORS = 11,
 EXPLORER_TO_BEACON_PROBABILITY = 0.05,
 BEACON_NAVIGATION_THRESHOLD = 40,
-SENSING_DISTANCE = 65, --[[ [cm] d_{camera} ]]
+SENSING_DISTANCE = 40, --[[ [cm] d_{camera} ]]
 EXPLORER_DISTANCE = 15, --[[ [cm] d_{expl} ]]
 CHAIN_DISTANCE = 130, --[[ [cm] d_{chain} ]]
 RAB_RANGE = 150, --[[ [cm] d_{chain} ]]
 DISTANCE_SCANNER_ANGULAR_SPEED = 2*math.pi,
 JUNCTION_THRESHOLD = 0.1,
-DEPLOYMENT_DELAY = 0, --[[ [Time steps] ]]
+DEPLOYMENT_DELAY = 50, --[[ [Time steps] ]]
 NO_STOP_DELAY = 100
 }
 
@@ -155,6 +156,11 @@ function step()
 		AttachingBehavior()
 	end
 
+	if robot.state == STATE.EXPLORER then
+		ExplorerBehavior()
+	end
+
+
 	--3. Act
 	
 	-- In any case, once the nest has been quitted, avoid going back to it.
@@ -180,6 +186,12 @@ function step()
 		return
 	end
 
+	-- Stop if the robot has reached the spot
+	if( position == POSITION.IN_SPOT ) then
+		robot.state = STATE.SPOT_REACHED
+		isStopped = true
+		spotFound = true
+	end
 	
 	-- Each robot broadcast its own ID and the encoding of its current state to all the neighboring robots
 	SendMessage(robotId,robot.state.encoding,robot.chain_id,spotFound)
@@ -187,7 +199,9 @@ function step()
 	-- Compute the vector sum among the desired direction and the resulting vector from the Proximity sensors reading
 	desiredDirection = desiredDirection + ParseProximitySensors()
 	
+	-- Use the distance scanner only when exiting the nest or while attaching to the chain
 	if (position == POSITION.OUT_OF_NEST and robot.state == STATE.ATTACHING) or robot.state == STATE.EXIT_NEST then
+		--dsRepulsionVec:fromPolar(1.5,dsRepulsionVec:angle())
 		desiredDirection = desiredDirection + dsRepulsionVec
 	end
 	
@@ -220,13 +234,8 @@ function reset()
 	robot.state = STATE.EXIT_NEST
 	robot.chain_id = 0
 	sensedBeacons = {}	
-
-	if robot.random.uniform() < 0.5 then
-		rotation = ROTATION_DIRECTION.CLOCKWISE
-	else
-		rotation = ROTATION_DIRECTION.COUNTERCLOCKWISE
-	end
 	
+	-- Initialize all the relevant variables
 	position = POSITION.IN_NEST
 	noStopSteps = 0
 	turnCounter = 0
@@ -235,7 +244,7 @@ function reset()
 	spotFound = false
 	leavingBeaconId = -1
 	rotationCounter = -1 
-	departureTime = 0
+	departureTime = -1
 	currentChainId = -1
 	targetBeaconId = -1
 	readingsInALoop = 0
@@ -262,17 +271,6 @@ function destroy()
    robot.distance_scanner.disable()	
 end
 
-
---[[ Function used to compute the Lennard-Jones virtual force:
-		p(d) = \epsilon * [(\frac{\sigma}{d})^12 - 2*(\frac{\sigma}{d})^6]
-		 |
-		F(d) = -12*\frac{\epsilon}{d} * [(\frac{\sigma}{d})^12 - (\frac{\sigma}{d})^6]
-		 | (approximated by)
-		F(d) = -4*\frac{\epsilon}{d} * [(\frac{\sigma}{d})^4 - (\frac{\sigma}{d})^2]
- ]]
-function LJForce(distance,epsilon,sigma)
-	return -4*(epsilon/distance)*(math.pow(sigma/distance,4)-math.pow(sigma/distance,2))
-end
 
 --This function computes the necessary wheel speed to go in the direction of the desired angle.
 function ComputeSpeedsFromAngle(angle)
@@ -302,6 +300,58 @@ function ComputeSpeedsFromAngle(angle)
 	return speeds
 end
 
+--[[ Function used to copy and sort the readings of the proximity sensors according to their distance.
+     The sensors are 24 and are equally distributed in a ring around the robot body. 
+	  In Lua they are indexed from 1 to 25, with the index value growing counterclockwise.
+	  Each sensor has a range of 10cm and returns a reading composed of an angle in radians and a value in the range [0,1]. 
+	  The angle corresponds to where the sensor is located in the body with respect to the front of the robot, which is the local x axis. 
+     The value is 0 if no obstacle is sensed and increases as the robot gets closer to the object. 
+]]
+function ParseProximitySensors()
+	local accumulator = Vector2:fromXY(0,0)
+	if not (robot.proximity == nil) then
+		--proximityReadings = CopyTable(robot.proximity)
+		for i=1,#robot.proximity do 
+			--Sum up individual forces in accumulator vector
+			local proximityVec = Vector2:fromPolar(robot.proximity[i].value,robot.proximity[i].angle)
+			--proximityVec:Scale(1/#proximityReadings)
+			proximityVec:Rotate(math.pi)
+			accumulator = accumulator + proximityVec
+		end
+		-- Normalization of the accumulator
+		--accumulator = Vector2:fromPolar(accumulator:length(),accumulator:angle())
+		accumulator = Vector2:fromPolar(2.0,accumulator:angle())
+		--log(robotId.." "..accumulator:toString())
+	end
+	return accumulator
+end
+
+function ProximitySensorsToSpeeds()
+	local speeds = {left=CONTROLLER_PARAMETER.WHEEL_SPEED,right=CONTROLLER_PARAMETER.WHEEL_SPEED}
+	closestObstaclePS = {value=-1, index=-1}
+	if not (robot.proximity == nil) then
+		for i=1,#robot.proximity do 
+			--Find maximum reading
+			if robot.proximity[i].value > closestObstaclePS.value then
+				closestObstaclePS.value = robot.proximity[i].value
+				closestObstaclePS.index = i
+			end
+		end
+		if closestObstaclePS.value ~= 0 then
+			if closestObstaclePS.index <= 12 then
+				-- The closest obstacle is between 0 and 180 degrees: soft turn towards the right
+				speeds = {left=CONTROLLER_PARAMETER.WHEEL_SPEED, right=((closestObstaclePS.index-1)*CONTROLLER_PARAMETER.WHEEL_SPEED/CONTROLLER_PARAMETER.SENSORS)}
+			else
+				-- The closest obstacle is between 180 and 360 degrees: soft turn towards the left
+				speeds = {left=((24-closestObstaclePS.index)*CONTROLLER_PARAMETER.WHEEL_SPEED/CONTROLLER_PARAMETER.SENSORS), right=CONTROLLER_PARAMETER.WHEEL_SPEED}
+			end
+		end
+	
+	end
+	return speeds
+end
+
+
 --[[ Function used to send a message having the format:
 		ID State 00 00 00 00 00 00 00 msg
 	  using the R&B actuator
@@ -319,6 +369,18 @@ function SendMessage(id,state,chain_id,spotFound)
 		robot.range_and_bearing.set_data(i,0)
 	end
 end
+
+--[[ Function used to compute the Lennard-Jones virtual force:
+		p(d) = \epsilon * [(\frac{\sigma}{d})^12 - 2*(\frac{\sigma}{d})^6]
+		 |
+		F(d) = -12*\frac{\epsilon}{d} * [(\frac{\sigma}{d})^12 - (\frac{\sigma}{d})^6]
+		 | (approximated by)
+		F(d) = -4*\frac{\epsilon}{d} * [(\frac{\sigma}{d})^4 - (\frac{\sigma}{d})^2]
+ ]]
+function LJForce(distance,epsilon,sigma)
+	return -4*(epsilon/distance)*(math.pow(sigma/distance,4)-math.pow(sigma/distance,2))
+end
+
 
 --[[ Function used to copy and sort the readings of the distance scanner according to their distance.
 	  The distance scanner is a rotating device with four sensors. 
@@ -338,6 +400,8 @@ function ParseDistanceScanner()
    --dsLongReadings = CopyTable(robot.distance_scanner.long_range)
 	--table.sort(dsShortReadings, function(a,b) return a.distance < b.distance end)
    --table.sort(dsLongReadings, function(a,b) return a.distance < b.distance end)
+
+	-- Parsing long distance readings
 	for i=1,#robot.distance_scanner.long_range do 
 		if robot.distance_scanner.long_range[i].distance > 0 then
 			dsVec = Vector2:fromPolar(1-(RANGE.DISTANCE_SCANNER:NormalizeInRange(robot.distance_scanner.long_range[i].distance)),robot.distance_scanner.long_range[i].angle)
@@ -360,20 +424,16 @@ function ParseDistanceScanner()
 	end
 
 
-	if readingsCounter > 100 then
+	--[[if readingsCounter > 100 then
 		obstaclePercentage = readingsInJunctionRange/readingsInALoop
 		readingsInALoop = 0
 		readingsInJunctionRange = 0
 		readingsCounter = 0
 	else
 		readingsCounter = readingsCounter + 1
-	end
-
-	--[[if state == STATE.CHAIN_END or 
-		state == STATE.CHAIN_MEMBER or
-		state == STATE.CHAIN_JUNCTION then
-		if CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED
 	end]]
+
+	
 	
 	for i=1,#robot.distance_scanner.short_range do
 		if robot.distance_scanner.short_range[i].distance > 0 then
@@ -478,56 +538,6 @@ function ParseGroundSensors()
 	
 end
 
---[[ Function used to copy and sort the readings of the proximity sensors according to their distance.
-     The sensors are 24 and are equally distributed in a ring around the robot body. 
-	  In Lua they are indexed from 1 to 25, with the index value growing counterclockwise.
-	  Each sensor has a range of 10cm and returns a reading composed of an angle in radians and a value in the range [0,1]. 
-	  The angle corresponds to where the sensor is located in the body with respect to the front of the robot, which is the local x axis. 
-     The value is 0 if no obstacle is sensed and increases as the robot gets closer to the object. 
-]]
-function ParseProximitySensors()
-	local accumulator = Vector2:fromXY(0,0)
-	if not (robot.proximity == nil) then
-		--proximityReadings = CopyTable(robot.proximity)
-		for i=1,#robot.proximity do 
-			--Sum up individual forces in accumulator vector
-			local proximityVec = Vector2:fromPolar(robot.proximity[i].value,robot.proximity[i].angle)
-			--proximityVec:Scale(1/#proximityReadings)
-			proximityVec:Rotate(math.pi)
-			accumulator = accumulator + proximityVec
-		end
-		-- Normalization of the accumulator
-		--accumulator = Vector2:fromPolar(accumulator:length(),accumulator:angle())
-		accumulator = Vector2:fromPolar(1.5,accumulator:angle())
-		--log(robotId.." "..accumulator:toString())
-	end
-	return accumulator
-end
-
-function ProximitySensorsToSpeeds()
-	local speeds = {left=CONTROLLER_PARAMETER.WHEEL_SPEED,right=CONTROLLER_PARAMETER.WHEEL_SPEED}
-	closestObstaclePS = {value=-1, index=-1}
-	if not (robot.proximity == nil) then
-		for i=1,#robot.proximity do 
-			--Find maximum reading
-			if robot.proximity[i].value > closestObstaclePS.value then
-				closestObstaclePS.value = robot.proximity[i].value
-				closestObstaclePS.index = i
-			end
-		end
-		if closestObstaclePS.value ~= 0 then
-			if closestObstaclePS.index <= 12 then
-				-- The closest obstacle is between 0 and 180 degrees: soft turn towards the right
-				speeds = {left=CONTROLLER_PARAMETER.WHEEL_SPEED, right=((closestObstaclePS.index-1)*CONTROLLER_PARAMETER.WHEEL_SPEED/CONTROLLER_PARAMETER.SENSORS)}
-			else
-				-- The closest obstacle is between 180 and 360 degrees: soft turn towards the left
-				speeds = {left=((24-closestObstaclePS.index)*CONTROLLER_PARAMETER.WHEEL_SPEED/CONTROLLER_PARAMETER.SENSORS), right=CONTROLLER_PARAMETER.WHEEL_SPEED}
-			end
-		end
-	
-	end
-	return speeds
-end
 
 
 --[[ Function used to copy and sort the readings of the range and bearing sensors according to their distance.
@@ -538,18 +548,40 @@ end
 		# range (the distance of the message source in cm).
 ]]
 function ParseRAB()
-	closestBeacon = {id = -1, chain_id = 0,  distance = 151, angle = 0 , type = -1}
+	closestBeacon = {id = -1, chain_id = 0,  distance = CONTROLLER_PARAMETER.RAB_RANGE + 1, angle = 0 , type = -1}
+	closestExplorer = {id = -1, chain_id = 0,  distance = CONTROLLER_PARAMETER.RAB_RANGE + 1, angle = 0 , type = -1}
+	closestFollower = {id = -1, chain_id = 0,  distance = CONTROLLER_PARAMETER.RAB_RANGE + 1, angle = 0 , type = -1}
 	farthestBeacon = {id = -1, chain_id = 0,  distance = 0, angle = 0 , type = -1}
-	robot.neighbors = {in_nest=0, attaching = 0, following = 0, chain_ends = 0, chain_members = 0,  chain_junctions = 0, chain_beacons = 0}
+	robot.neighbors = {in_nest = 0, explorer = 0, attaching = 0, following = 0, chain_ends = 0, chain_members = 0,  chain_junctions = 0, chain_beacons = 0}
 	sensedBeacons = {}
 
 	for i=1,#robot.range_and_bearing do 
 		if (robot.range_and_bearing[i]).data[2] == STATE.EXIT_NEST.encoding then
 			robot.neighbors.in_nest = robot.neighbors.in_nest + 1 
 		end
+
+		if (robot.range_and_bearing[i]).data[2] == STATE.EXPLORER.encoding then
+			robot.neighbors.explorer = robot.neighbors.explorer + 1 
+			if (robot.range_and_bearing[i]).range < closestExplorer.distance then
+					closestExplorer = {id = (robot.range_and_bearing[i]).data[1] , 
+										  chain_id = (robot.range_and_bearing[i]).data[3], 
+										  distance = (robot.range_and_bearing[i]).range, 
+										  angle = 	(robot.range_and_bearing[i]).horizontal_bearing, 
+										  type = (robot.range_and_bearing[i]).data[2],
+										  spotFound = (robot.range_and_bearing[i]).data[4] }
+			end
+		end
 		
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_FOLLOWING.encoding then
 			robot.neighbors.following = robot.neighbors.following + 1 
+			if (robot.range_and_bearing[i]).range < closestFollower.distance then
+					closestFollower = {id = (robot.range_and_bearing[i]).data[1] , 
+										  chain_id = (robot.range_and_bearing[i]).data[3], 
+										  distance = (robot.range_and_bearing[i]).range, 
+										  angle = 	(robot.range_and_bearing[i]).horizontal_bearing, 
+										  type = (robot.range_and_bearing[i]).data[2],
+										  spotFound = (robot.range_and_bearing[i]).data[4] }
+			end
 		end
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.ATTACHING.encoding then
@@ -614,53 +646,59 @@ function ParseRAB()
 end
 
 
-function AttachingBehavior()
 
-	--[[if robot.neighbors.chain_beacons > 0 then
-		robot.state = STATE.DIRECTING_TO_BEACON
-		log("Robot "..robotId.." direction beacon!")
-		return 
-	end]]
-
+function ExitNestBehavior()
 	
-				desiredDirection:SetFromPolar(1.2,closestBeacon.angle)
-				desiredDirection:Rotate(math.pi)
-				return 
-		
+	dsRepulsionVec = Vector2:fromPolar(1.0,dsRepulsionVec:angle())
+
+	-- If the robot senses any type of beacons, it direct itself towards it
+	if robot.neighbors.chain_beacons > 0 then
+		log("Robot "..robotId.." direction beacon!")
+		robot.state = STATE.CHAIN_FOLLOWING
+		targetBeaconId = closestBeacon.id  
+		return 
+	end
+	
+	if robot.neighbors.explorer > 0 then
+		desiredDirection:SetFromPolar(1.0,closestExplorer.angle)
+		return 
+	end
+
+	if robot.neighbors.following > 0 then
+		desiredDirection:SetFromPolar(1.0,closestFollower.angle)
+		return 
+	end
+	
+	-- If the robot has left the nest, then it becomes an explorer.
+	if( position == POSITION.OUT_OF_NEST ) then
+		robot.state = STATE.EXPLORER
+		noStopSteps = CONTROLLER_PARAMETER.NO_STOP_DELAY
+		log("Robot "..robotId.." exploring!")
+		return
+	end
+
+end
+
+function ExplorerBehavior()
+
+	if robot.neighbors.chain_beacons > 0 then
+		robot.state = STATE.CHAIN_FOLLOWING
+		log("Robot "..robotId.." following chain!")
+		return 
+	end
 	
 	if position ==	POSITION.IN_NEST then
 		robot.state = STATE.EXIT_NEST
 		return
 	end
 
-	--[[if position == POSITION.OUT_OF_NEST then
-		robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
-	end]]
-	if position == POSITION.OUT_OF_NEST and 
-		(robot.neighbors.chain_beacons == 1 or closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE) then
-			robot.state = STATE.CHAIN_END
-			-- Compute the robot chain ID by reading the neighboring robot ID and incrementing it by one.
-			if robot.neighbors.chain_beacons > 0 then
-				robot.chain_id = sensedBeacons[1].chain_id + 1
-			else
-				robot.chain_id = -1
-			end
-			leavingBeaconId = -1
-			return
-	end]]
-
-	--if robot.neighbors.explorers > 0 then
-	
-	--end
-
-
 	if noStopSteps < 0 then	
-		if robot.neighbors.chain_beacons == 0 and not isLeaving then	
+		if robot.neighbors.chain_beacons == 0 then	
 			if robot.random.uniform() < CONTROLLER_PARAMETER.EXPLORER_TO_BEACON_PROBABILITY and position == POSITION.OUT_OF_NEST then
 				robot.state = STATE.CHAIN_END
-				log("Robot "..robotId..": Chain end.")
+				log("Robot "..robotId..": Chain end ->" .. robot.chain_id)
 				isLeaving = false
-				robot.distance_scanner.set_rpm(0)
+				robot.distance_scanner.set_rpm(CONTROLLER_PARAMETER.DISTANCE_SCANNER_ANGULAR_SPEED)
 				robot.in_chain = 1
 				return
 			end
@@ -670,6 +708,182 @@ function AttachingBehavior()
 	end
 
 end
+
+
+function ChainFollowingBehavior()
+		--[[
+		4 Basic Behavior Rules:
+		1. Move towards Target Beacon.
+		2. If <close enough to Beacon>, move perpendicular with respect to it.
+		3. If <next Beacon in chain sensed>, update Target Beacon.
+		4. If <chain end reached>, decide where to attach.
+		5. If <beacon lost>, stop
+		]]
+
+		local maxId = -1
+		local maxSensedChainId = -1
+		local accumulator = Vector2:fromXY(0,0)
+
+		-- In no beacons are sensed...
+		if robot.neighbors.chain_beacons == 0 then
+			if position == POSITION.IN_NEST then
+				robot.state = STATE.EXIT_NEST
+				return
+			else
+			-- 5. If <beacon lost>, stop
+				if not isStopped then
+					log("Robot "..robotId.." lost!")
+				end
+				isStopped = true
+				return
+			end
+		end
+		
+		-- If at least one beacon is sensed...
+		if isStopped then
+			isStopped = false
+		end
+		-- Iterate through all the sensed Beacons
+		for key,value in pairs(sensedBeacons) do
+			
+			--accumulator = accumulator + Vector2:fromPolar(1.0,value.angle)			
+
+			-- Keep track of the maximum chain id sensed
+			if value.chain_id >= maxSensedChainId then 
+				maxId = key
+				maxSensedChainId = value.chain_id
+			end
+				
+			--4. If <chain end reached>, decide where to attach.
+			if value.type == STATE.CHAIN_END.encoding then
+				if value.distance < CONTROLLER_PARAMETER.SENSING_DISTANCE then 
+					targetBeaconId = key
+					robot.state = STATE.ATTACHING
+					log("Robot "..robotId.." attaching!") 
+					return
+				end
+			end
+		end
+		
+		--3. If <next Beacon in chain sensed>, update Target Beacon.
+		if maxSensedChainId > currentChainId then
+			currentChainId = maxSensedChainId
+		end
+		
+		targetBeaconId = maxId
+		--log("Robot "..robotId.." next:"..maxId)
+		--1. Move towards Target Beacon.
+		desiredDirection:SetFromPolar(1.0,sensedBeacons[targetBeaconId].angle)
+
+		--2. a. If the chain id of the target beacon is smaller than the current one, move away from it.
+		if sensedBeacons[targetBeaconId].chain_id < currentChainId then
+			desiredDirection:Rotate(math.pi)
+			return	
+		--2. b. Otherwise direct to it.
+		else
+			--3. If <close enough to Beacon>, move perpendicular with respect to it.
+			if sensedBeacons[targetBeaconId].distance < CONTROLLER_PARAMETER.SENSING_DISTANCE then
+				desiredDirection:Rotate(math.pi/2)
+				desiredDirection = desiredDirection + Vector2:fromPolar((50-sensedBeacons[targetBeaconId].distance)/15,sensedBeacons[targetBeaconId].angle)
+			end
+		end
+
+end
+
+function AttachingBehavior()
+	
+	local targetExists = false
+	local maxId = -1
+	local maxSensedChainId = -1
+
+	dsRepulsionVec = Vector2:fromPolar(1.3,dsRepulsionVec:angle())
+		
+	--[[if robot.neighbors.chain_beacons > 0 then
+		robot.state = STATE.DIRECTING_TO_BEACON
+		log("Robot "..robotId.." direction beacon!")
+		return 
+	end]]
+	
+	if position ==	POSITION.IN_NEST then
+		robot.state = STATE.EXIT_NEST
+		return
+	end
+
+	if position == POSITION.OUT_OF_NEST and 
+		(robot.neighbors.chain_beacons >= 1 and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE) then
+		robot.state = STATE.CHAIN_END
+		robot.in_chain = 1
+		-- Compute the robot chain ID by reading the neighboring robot ID and incrementing it by one.
+		robot.chain_id = closestBeacon.chain_id + 1
+		log("Robot "..robotId..": Chain end ->"..robot.chain_id)
+		return
+	end
+	
+	-- Iterate through all the sensed Beacons
+	for key,value in pairs(sensedBeacons) do
+		-- Keep track of the maximum chain id sensed
+		if value.chain_id >= maxSensedChainId then 
+			maxId = key
+			maxSensedChainId = value.chain_id
+		end
+		-- Keep track of the fact that the target beacon is sensed.
+		if key == targetBeaconId then
+			targetExists = true
+		end
+	end
+
+	--3. If <next Beacon in chain sensed>, update Target Beacon.
+	if maxSensedChainId > currentChainId then
+		targetBeaconId = maxId
+		currentChainId = maxSensedChainId
+		targetExists = true
+		log("Robot "..robotId.." next:"..maxId)
+	end
+	
+	-- Move away from Target Beacon.
+	if targetExists then
+		if isStopped then
+			isStopped = false
+		end
+		desiredDirection:SetFromPolar(1.2,sensedBeacons[targetBeaconId].angle)
+		desiredDirection:Rotate(math.pi)
+		if sensedBeacons[targetBeaconId].distance < CONTROLLER_PARAMETER.SENSING_DISTANCE then
+			if rotationCounter == 0 then
+				log("Arrivo!")
+				departureTime = robot.random.uniform(15,150)
+			end
+		end
+				
+		if rotationCounter > departureTime then
+			desiredDirection:SetFromPolar(1.2,sensedBeacons[targetBeaconId].angle)
+			desiredDirection:Rotate(math.pi)
+		else
+			desiredDirection:SetFromPolar(1.2,sensedBeacons[targetBeaconId].angle)
+			if rotation == ROTATION_DIRECTION.CLOCKWISE then
+				desiredDirection:Rotate(-math.pi/4)
+			end
+			if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
+				desiredDirection:Rotate(math.pi/4)
+			end
+			rotationCounter = rotationCounter + 1
+			return
+		end
+		return
+	else
+		--[[if closestBeacon.type == STATE.CHAIN_END.encoding then
+		end]]
+		desiredDirection:SetFromPolar(1.0,closestBeacon.angle)
+		desiredDirection:Rotate(math.pi)
+		return
+		--if not isStopped then
+			--log("Robot "..robotId.." stopped while attaching!")
+		--end
+		--isStopped = true
+		--return
+	end
+
+end
+
 
 function ChainEndBehavior()
 
@@ -719,126 +933,5 @@ function ChainJunctionBehavior()
 			end
 		end
 	end]]
-end
-
-function ExitNestBehavior()
-	
-	dsRepulsionVec = Vector2:fromPolar(1.0,dsRepulsionVec:angle())
-
-	-- If the robot senses any type of beacons, it direct itself towards it
-	if robot.neighbors.chain_beacons > 0 then
-		log("Robot "..robotId.." direction beacon!")
-		robot.state = STATE.CHAIN_FOLLOWING
-		targetBeaconId = closestBeacon.id  
-		return 
-	end
-	
-	
-	-- If the robot has left the nest, then it becomes an explorer.
-	if( position == POSITION.OUT_OF_NEST ) then
-		robot.state = STATE.ATTACHING
-		noStopSteps = CONTROLLER_PARAMETER.NO_STOP_DELAY
-		log("Robot "..robotId.." attaching!")
-		return
-	end]]
-
-	--If the robot is going straight..
-	--if desiredDirection:angle() then
-	-- ...and it is trying to exit nest, take into account the readings from the distance scanner
-		--[[if frontObstacleDistance > 0 and frontObstacleDistance < CONTROLLER_PARAMETER.DISTANCE_SCANNER_THRESHOLD then
-			turnCounter = 0
-			local rotationAngle = math.pi
-			--local rotationAngle = RADIANS_RANGE.UniformRandom()
-			--log("Robot "..robotId.." long distance wall!")
-			if rotation == ROTATION_DIRECTION.CLOCKWISE then
-				desiredDirection:SetFromPolar(1,-rotationAngle)
-			end
-			
-			if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
-				desiredDirection:SetFromPolar(1,rotationAngle)
-			end
-		else
-			turnCounter = turnCounter + 1
-			
-			if(turnCounter > 90) then
-				if rotation == ROTATION_DIRECTION.CLOCKWISE then
-					desiredDirection:SetFromPolar(1,math.pi/2)
-				end
-				if rotation == ROTATION_DIRECTION.COUNTERCLOCKWISE then
-					desiredDirection:SetFromPolar(1,-math.pi/2)
-				end
-				if(turnCounter > robot.random.uniform(110,125)) then 
-					turnCounter = 0
-				end
-			end
-		end
-		return]]
-	--end
-	--if closestObstacleDS.distance > 0  then
-		--desiredDirection = ParseProximitySensors() + Vector2:fromPolar(1,closestObstacleDS.angle)
-		-- To check whether this will suffice or rotation + moving straight is required
-	--end
-	
-end
-
-function ChainFollowingBehavior()
-		local maxId = -1
-		local maxSensedChainId = -1
-		local targetExists = false
-
-		-- Stop if the robot has reached the spot
-		if( position == POSITION.IN_SPOT ) then
-			robot.state = STATE.SPOT_REACHED
-			isStopped = true
-			spotFound = true
-		end
-
-		if robot.neighbors.chain_beacons == 0 then
-			if position == POSITION.IN_NEST then
-				robot.state = STATE.EXIT_NEST
-				return
-			end
-			if position == POSITION.OUT_OF_NEST then
-				isStopped = true
-				return
-			end
-		end
-		
-		for key,value in pairs(sensedBeacons) do
-				if value.chain_id >= maxSensedChainId then 
-					maxId = key
-					maxSensedChainId = value.chain_id
-				end
-
-				if key == targetBeaconId then
-					targetBeaconID = key
-					targetExists = true
-				end
-				
-				if value.type == STATE.CHAIN_END.encoding then
-					if value.distance < CONTROLLER_PARAMETER.SENSING_DISTANCE then 
-						targetBeaconID = key
-						robot.state = STATE.ATTACHING 
-						return
-					end
-				end
-		end
-
-		if maxSensedChainId ~= -1 then
-			if maxSensedChainId > currentChainId then
-				targetBeaconID = maxId
-				currentChainId = maxSensedChainId
-			end
-			desiredDirection:SetFromPolar(1.0,sensedBeacons[targetBeaconID].angle)
-			return
-		end
-
-		if targetExists then
-			desiredDirection:SetFromPolar(1.0,sensedBeacons[targetBeaconId].angle)
-			return
-		end
-
-		
-
 end
 		
