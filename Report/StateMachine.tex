@@ -4,25 +4,24 @@
 \begin{tikzpicture}[shorten >=1pt,node distance=5cm,on grid,auto] 
    \node[state,initial] (EN)   {Exit Nest}; 
    \node[state,thick] (EX) [below=of EN] {Explorer};
-   \node[state,thick] (DtoB) [right=of EN] {Directing to Beacon};
-   \node[state,thick] (SR) [right=of DtoB] {Spot Reached};
-   \node[state,accepting,thick] (CE) [below =of DtoB] {Chain End};
+   \node[state,thick] (EC) [right=of EN] {Chain Extension};
+   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
+   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
    \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
    \node[state,accepting,thick] (CJ) [below left=of CM] {Chain Junction};
     \path[->] 
-    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest \& $n_b = 0$} (EX)
-         edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (DtoB)
-    (EX) edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (DtoB)
-         edge [bend right]  node [below,text width=2cm]  {$n_b = 0$ \& Out of Nest \& $p_b$} (CE)
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{} n_b = 0$} (EX)
+         edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (EC)
+    (EX) edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (EC)
+         edge [bend right]  node [below,text width=2cm]  {$n_b = 0 \text{} \wedge$ Out of Nest $\wedge \text{} P_{etob}$} (CE)
     (CE) edge  node  {$n_b > 1$} (CM)
-         edge  node [left,text width=2cm]  {$obstacles < j_t$} (CJ)
-    (CM) edge [bend left] node [text width=2cm] {$n_b > 2 \wedge obstacles < j_t$} (CJ)
-    (DtoB) edge  node [above,text width=1.5cm]  {$n_b = 0$ \& In Nest} (EN)
-           edge  node [text width=1.5cm]  {$n_b = 0$ \& Out of Nest} (EX) 
-           edge  node [right,text width=1.5cm] {$n_b = 1$ \& Out of Nest \& $d_b > d_c$} (CE)
-           edge  node {Spot sensed} (SR);
+    (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
+    (EC) edge  node [above,text width=1.5cm]  {$n_b = 0 \text{} \wedge$ In Nest} (EN)
+           edge  node [text width=1.5cm]  {$n_b > 1 \text{} \wedge$ Out of Nest} (EX) 
+           edge  node [right,text width=1.5cm] {$n_b > 0 \text{} \wedge$ Out of Nest $\wedge \text{} d_{cb} > d_c$} (CE)
+           edge  node {On spot} (SR);
 \end{tikzpicture}
-\captionof{figure}{Implemented FSM for the \emph{s-bot} behavior}
+\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
 \end{center}
 
 \paragraph{Controller parameters}
@@ -40,9 +39,11 @@ $t_{ns}$ & Delay time on the decision to stop outside the nest & 100 [steps] \\ 
 \label{tab:parameters}
 \end{center}
 
+
+
 \paragraph{Exit nest}
-The exit nest state is the initial state of the robot, which is maintained as long as it remains in the nest.
-Basically it consist of a wall avoidance behavior, performed using the distance scanner in a static way.
+The exit nest state is the initial state of the robots, which is maintained as long as it remains in the nest.
+Basically, it consist of a wall avoidance behavior, performed using the distance scanner, rotating with angular speed $\omega_{ds}$.
 In fact, the distance scanner is locked in a way that the long range sensors point in the same direction as the robot.
 
 The wall avoidance behavior consist in turning clockwise or counterclockwise (depending on the robot) every time a wall is sensed, until the obstacle is not observed anymore.

@@ -195,7 +195,8 @@ function step()
 	desiredDirection = desiredDirection + ParseProximitySensors()
 	
 	-- Use the distance scanner only when exiting the nest or while attaching to the chain
-	if (position == POSITION.OUT_OF_NEST and robot.state == STATE.ATTACHING) or robot.state == STATE.EXIT_NEST then
+	--if (position == POSITION.OUT_OF_NEST and robot.state == STATE.ATTACHING) or robot.state == STATE.EXIT_NEST then
+	if (position == POSITION.OUT_OF_NEST) or robot.state == STATE.EXIT_NEST then
 		--dsRepulsionVec:fromPolar(1.5,dsRepulsionVec:angle())
 		desiredDirection = desiredDirection + dsRepulsionVec
 	end
