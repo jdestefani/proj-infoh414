@@ -60,7 +60,7 @@ fi
 
 #Case local and cluster
 USERNAME=`whoami`
-RESULTSDIR="/home/${USERNAME}/workspace/INFO-H-414/Results/"
+RESULTSDIR="/home/${USERNAME}/INFO-H-414/Results/"
 XMLDIR=${RESULTSDIR}${EXPERIMENT_NAME}"/xml/"
 
 #clean_old_runs $XMLDIR$EXPERIMENT_NAME $XMLDIR$EXPERIMENT_NAME 
@@ -84,7 +84,7 @@ do
         -e "s/#output_file#/${EXPERIMENT_NAME}${PARAMETERS}.txt/"   \
         < ${TEMPLATE_FILE} > ${XML_FILENAME}
 	
-	echo "Executing simulation:"
+	echo "Generating simulation ${counter} of ${RUNS}:"
 	echo ""
 	#Launch of each job separately using the xml file generated in the previous step
 	#argos3 -c ${XML_FILENAME}

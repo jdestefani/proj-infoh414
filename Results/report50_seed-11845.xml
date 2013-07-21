@@ -8,13 +8,13 @@
     <!-- To make ARGoS faster, you can set 'threads' to some number greater than 0 -->
     <system threads="4" />
     <!-- To change the random seed for each experiment repetition, you can set 'random_seed' to whatever value you like -->
-    <experiment length="0" ticks_per_second="10" random_seed="124" />
+    <experiment length="0" ticks_per_second="10" random_seed="11845" />
   </framework>
 
   <!-- ****************** -->
   <!-- * Loop functions * -->
   <!-- ****************** -->
-  <loop_functions label="landmarks" output="output.txt" />
+  <loop_functions label="landmarks" output="report50_seed-11845.txt" />
 
   <!-- *************** -->
   <!-- * Controllers * -->
@@ -40,13 +40,11 @@
         <footbot_distance_scanner implementation="rot_z_only" show_rays="false" />
         <footbot_motor_ground implementation="rot_z_only" />
         <footbot_proximity implementation="default" show_rays="false" />
-        <range_and_bearing implementation="medium" medium="rab" show_rays="true" />
+        <range_and_bearing implementation="medium" medium="rab" show_rays="false" />
       </sensors>
-      <!-- If you want to execute ARGoS with an empty script, use this syntax -->
-      <params />
       <!-- If you want to execute ARGoS with a script preloaded, use this syntax
            Note: the preloaded script does not appear in the Lua editor! (that's a TODO) -->
-      <!-- params script="my_script.lua" / -->
+       <params script="Scripts/ImprovedChainController.lua" />
     </lua_controller>
   </controllers>
 
@@ -144,11 +142,13 @@
   <!-- ****************** -->
   <visualization>
     <!-- To execute ARGoS in batch without visualization, just comment out the 'qt-opengl' section -->
+<!--
     <qt-opengl lua_editor="true">
       <camera>
         <placement idx="0" position="-0.430336,-0.338533,9.65303" look_at="-0.430292,-0.283162,8.65457" lens_focal_length="20" />
       </camera>
     </qt-opengl>
+-->
   </visualization>
 
 </argos-configuration>

@@ -6,15 +6,15 @@
   <!-- ************************* -->
   <framework>
     <!-- To make ARGoS faster, you can set 'threads' to some number greater than 0 -->
-    <system threads="4" />
+    <system threads="2" />
     <!-- To change the random seed for each experiment repetition, you can set 'random_seed' to whatever value you like -->
-    <experiment length="0" ticks_per_second="10" random_seed="124" />
+    <experiment length="0" ticks_per_second="10" random_seed="#seed#" />
   </framework>
 
   <!-- ****************** -->
   <!-- * Loop functions * -->
   <!-- ****************** -->
-  <loop_functions label="landmarks" output="output.txt" />
+  <loop_functions label="landmarks" output="#output_file#" />
 
   <!-- *************** -->
   <!-- * Controllers * -->
@@ -40,13 +40,13 @@
         <footbot_distance_scanner implementation="rot_z_only" show_rays="false" />
         <footbot_motor_ground implementation="rot_z_only" />
         <footbot_proximity implementation="default" show_rays="false" />
-        <range_and_bearing implementation="medium" medium="rab" show_rays="true" />
+        <range_and_bearing implementation="medium" medium="rab" show_rays="false" />
       </sensors>
       <!-- If you want to execute ARGoS with an empty script, use this syntax -->
-      <params />
+      <!--<params /> -->
       <!-- If you want to execute ARGoS with a script preloaded, use this syntax
            Note: the preloaded script does not appear in the Lua editor! (that's a TODO) -->
-      <!-- params script="my_script.lua" / -->
+      <params script="Scripts/ImprovedChainController.lua" />
     </lua_controller>
   </controllers>
 
@@ -58,69 +58,33 @@
     <!-- Floor -->
     <floor id="floor" source="loop_functions" pixels_per_meter="100" />
     <!-- Walls -->
-    <box id="wall_perimeter_north" size="8,0.1,1" movable="false">
-      <body position="0,5,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_perimeter_south" size="8,0.1,1" movable="false">
-      <body position="0,-5,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_perimeter_west" size="0.1,10,1" movable="false">
-      <body position="4,0,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_perimeter_east" size="0.1,10,1" movable="false">
-      <body position="-4,0,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_deployment_east" size="0.1,4,1" movable="false">
-      <body position="2,-3,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_deployment_west" size="0.1,4,1" movable="false">
-      <body position="-2,-3,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_deployment_north_east" size="1.25,0.1,1" movable="false">
-      <body position="1.375,-1,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_deployment_north_west" size="1.25,0.1,1" movable="false">
-      <body position="-1.375,-1,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_room_east" size="0.1,4,1" movable="false">
-      <body position="2,3,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_room_west" size="0.1,4,1" movable="false">
-      <body position="-2,3,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_room_north_east" size="1.25,0.1,1" movable="false">
-      <body position="1.375,1,0" orientation="0,0,0" />
-    </box>
-    <box id="wall_room_north_west" size="1.25,0.1,1" movable="false">
-      <body position="-1.375,1,0" orientation="0,0,0" />
-    </box>
+    <box id="wall_perimeter_north"       position="0,5,0"       orientation="0,0,0" size="8,0.1,1"    movable="false" />
+    <box id="wall_perimeter_south"       position="0,-5,0"      orientation="0,0,0" size="8,0.1,1"    movable="false" />
+    <box id="wall_perimeter_west"        position="4,0,0"       orientation="0,0,0" size="0.1,10,1"   movable="false" />
+    <box id="wall_perimeter_east"        position="-4,0,0"      orientation="0,0,0" size="0.1,10,1"   movable="false" />
+    <box id="wall_deployment_east"       position="2,-3,0"      orientation="0,0,0" size="0.1,4,1"    movable="false" />
+    <box id="wall_deployment_west"       position="-2,-3,0"     orientation="0,0,0" size="0.1,4,1"    movable="false" />
+    <box id="wall_deployment_north_east" position="1.375,-1,0"  orientation="0,0,0" size="1.25,0.1,1" movable="false" />
+    <box id="wall_deployment_north_west" position="-1.375,-1,0" orientation="0,0,0" size="1.25,0.1,1" movable="false" />
+    <box id="wall_room_east"             position="2,3,0"       orientation="0,0,0" size="0.1,4,1"    movable="false" />
+    <box id="wall_room_west"             position="-2,3,0"      orientation="0,0,0" size="0.1,4,1"    movable="false" />
+    <box id="wall_room_north_east"       position="1.375,1,0"   orientation="0,0,0" size="1.25,0.1,1" movable="false" />
+    <box id="wall_room_north_west"       position="-1.375,1,0"  orientation="0,0,0" size="1.25,0.1,1" movable="false" />
     <!--  Obstacles -->
-    <box id="obstacle_north" size="1.5,1.5,1" movable="false">
-      <body position="0,3,0" orientation="60,0,0" />
-    </box>
-    <box id="obstacle_north_west" size="1,1.5,1" movable="false">
-      <body position="-3.5,2.5,0" orientation="0,0,0" />
-    </box>
-    <box id="obstacle_south_west" size="1,1,1" movable="false">
-      <body position="-3.5,-3.5,0" orientation="0,0,0" />
-    </box>
-    <box id="obstacle_east" size="1,2,1" movable="false">
-      <body position="3.5,1,0" orientation="0,0,0" />
-    </box>
-    <box id="obstacle_south_east" size="0.75,1,1" movable="false">
-      <body position="2.375,-3,0" orientation="0,0,0" />
-    </box>
+    <box id="obstacle_north"             position="0,3,0"       orientation="60,0,0" size="1.5,1.5,1" movable="false" />
+    <box id="obstacle_north_west"        position="-3.5,2.5,0"  orientation="0,0,0"  size="1,1.5,1"   movable="false" />
+    <box id="obstacle_south_west"        position="-3.5,-3.5,0" orientation="0,0,0"  size="1,1,1"     movable="false" />
+    <box id="obstacle_east"              position="3.5,1,0"     orientation="0,0,0"  size="1,2,1"     movable="false" />
+    <box id="obstacle_south_east"        position="2.375,-3,0"  orientation="0,0,0"  size="0.75,1,1"  movable="false" />
     <!-- Foot-bots -->
     <distribute>
       <position method="uniform" min="-2,-5,0" max="2,-1,0" />
       <orientation method="uniform" min="0,0,0" max="360,0,0" />
       <!-- You can play with the number of foot-bots changing the 'quantity' attribute -->
-      <entity quantity="50" max_trials="10" base_num="1">
+      <entity quantity="#swarm_size#" max_trials="10" base_num="1">
         <!-- You can play with the range of the range and bearing system changing the 'rab_range' attribute
              NOTE: here it is expressed in meters, while in the controller you'll work in cm! -->
-        <foot-bot id="rescuer" rab_range="1.5">
-          <controller config="controller" /> 
-        </foot-bot>
+        <foot-bot id="rescuer" rab_range="1.5" controller="controller" /> 
       </entity>
     </distribute>
   </arena>
@@ -143,12 +107,12 @@
   <!-- * Visualization * -->
   <!-- ****************** -->
   <visualization>
-    <!-- To execute ARGoS in batch without visualization, just comment out the 'qt-opengl' section -->
+    <!-- To execute ARGoS in batch without visualization, just comment out the 'qt-opengl' section 
     <qt-opengl lua_editor="true">
       <camera>
         <placement idx="0" position="-0.430336,-0.338533,9.65303" look_at="-0.430292,-0.283162,8.65457" lens_focal_length="20" />
       </camera>
-    </qt-opengl>
+    </qt-opengl>-->
   </visualization>
 
 </argos-configuration>
