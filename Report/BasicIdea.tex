@@ -2,9 +2,17 @@
 The robot controller has been structured according to the sense-think-act paradigm.
 In fact, at each time step, the robots will:
 \begin{enumerate}
-  \item \emph{(Sense)} - Read the informations collected by the available sensors (proximity, ground, distance scanner and Range and Bearing)
+  \item \emph{(Sense)} - Read the informations collected by the available sensors.
   \item \emph{(Think)} - Determine the values to send to the actuators according to the state machine defined in \nameref{sec:sm} and the information from the sensors.
-  \item \emph{(Act)} - Control the actuators (wheels) using the values determined in the previous step.
+  \item \emph{(Act)} - Control the actuators.
+\end{enumerate}
+
+In terms of code:
+\begin{enumerate}
+  \item \emph{(Sense)} - The \emph{ParseX} function are used to read the values of the different sensors (proximity, ground, distance scanner and Range and Bearing) and provide information to the following step in a suitable form (e.g. repulsion vector or beacon table).
+  \item \emph{(Think)} - The core of the behavior is implemented as a finite state machine (FSM), where each state of the automaton is implemented as function.
+  In this way the controller of the robot just need to execute the function corresponding to the agent's current state.
+  \item \emph{(Act)} - According to the position, and the control values computed in the previous step, determine the speeds to actuate on the wheels and the information to broadcast using
 \end{enumerate}
 
 According to the principles of the swarm robotics, a behavior at the swarm level should emerge from local interactions at the robot level, using information either coming from the environment or from other robots.

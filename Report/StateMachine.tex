@@ -39,7 +39,40 @@ $t_{ns}$ & Delay time on the decision to stop outside the nest & 100 [steps] \\ 
 \label{tab:parameters}
 \end{center}
 
+\paragraph{Vector fields}
+The resulting forces from the aforementioned vector field are determined from the corresponding sensor readings.
+That is, each reading is transformed into a vector whose angle and magnitude depends on the value of the reading itself.
+All the vector are expressed in polar coordinates, in the form (magnitude,angle).
 
+\subparagraph{Obstacle avoidance}
+\begin{equation}
+\mathbf{p_i} = (r_{prox_{i}},\theta_i)  
+\end{equation}
+where $r_{prox_i}$ corresponds to the value of the reading of the $i^{th}$ proximity sensor and $\theta_i$ is the corresponding angle.
+
+\begin{equation}
+\mathbf{sp} = \sum_i \mathbf{p_i}  
+\mathbf{F_{obs}} = (1.5,\theta_{sp})  
+\end{equation}
+where $\theta_{sp}$ corresponds to the angle of $\mathbf{sp}$ vector.
+
+\subparagraph{Distance scanner}
+\begin{equation}
+\mathbf{ds_i} = (1 - \frac{150 - r_{ds_{i}}}{150-4},\theta_i)  
+\end{equation}
+where $r_{prox_i}$ corresponds to the value of the $i^th$ reading of the distance and $\theta_i$ is the corresponding angle.
+
+\begin{equation}
+\mathbf{sds} = \sum_i \mathbf{ds_i}  
+\mathbf{F_{ds}} = (1.0,\theta_{sds})  
+\end{equation}
+where $\theta_{sds}$ corresponds to the angle of $\mathbf{sds}$ vector.
+
+\subparagraph{Range and Bearing}
+\begin{equation}
+\mathbf{F_{rab}} = (1.0,\theta_{rab})  
+\end{equation}
+where $\theta_{rab}$ corresponds to the angle of RAB reading.
 
 \paragraph{Exit nest}
 The exit nest state is the initial state of the robots, which is maintained as long as it remains in the nest.
