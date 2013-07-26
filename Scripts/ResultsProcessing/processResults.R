@@ -18,7 +18,10 @@ extractMetrics <- function(inputFile){
   #Extract the completion time
   completionTime <- inputData[dim(inputData)[1],1]
   
-  returnValues <- c(as.numeric(robotsInChain),as.numeric(completionTime))
+  #Extract the completion time
+  firstTargetTimes <- inputData[inputData[,3] > 0,1]
+  
+  returnValues <- c(as.numeric(robotsInChain),as.numeric(completionTime),as.numeric(firstTargetTimes[1]))
   return(returnValues)
 }
 
@@ -95,7 +98,7 @@ plotRobotOnTarget <- function(onSpotPlot){
 
 
 #Set the directory containing the experiment results as current working directory
-setwd("Results/ResultsDS")
+setwd("Results/50Trials")
 #List all the files containing information about occupation
 resultsFiles <- list.files(pattern = "\\.txt$")
 #Process every single file separately
@@ -103,7 +106,8 @@ print("[STATUS] - Processing results file")
 metrics <- sapply(resultsFiles,extractMetrics)
 #Transform processing results into dataframe
 metrics <- as.matrix(metrics)
-rownames(metrics) <- c("Robots in Chain","Completion Time")
+rownames(metrics) <- c("Robots in Chain","Completion Time","First Target Time")
+print(metrics)
 duration <- max(metrics["Completion Time",])
 
 inChain <- lapply(resultsFiles,extractColumn,index=2,maxDuration=duration)
@@ -130,14 +134,19 @@ print("[STATUS] - Create reporting data frame")
 report <- data.frame()
 report["Mean","Robots in Chain"] <- mean(metrics["Robots in Chain",])
 report["Mean","Completion Time"] <- mean(metrics["Completion Time",])
+report["Mean","First Target Time"] <- mean(metrics["First Target Time",])
 report["Standard Deviation","Robots in Chain"] <- sd(metrics["Robots in Chain",])
 report["Standard Deviation","Completion Time"] <- sd(metrics["Completion Time",])
+report["Standard Deviation","First Target Time"] <- sd(metrics["First Target Time",])
 report["Median","Robots in Chain"] <- median(metrics["Robots in Chain",])
 report["Median","Completion Time"] <- median(metrics["Completion Time",])
+report["Median","First Target Time"] <- median(metrics["First Target Time",])
 report["Min","Robots in Chain"] <- min(metrics["Robots in Chain",])
 report["Min","Completion Time"] <- min(metrics["Completion Time",])
+report["Min","First Target Time"] <- min(metrics["First Target Time",])
 report["Max","Robots in Chain"] <- max(metrics["Robots in Chain",])
 report["Max","Completion Time"] <- max(metrics["Completion Time",])
+report["Max","First Target Time"] <- max(metrics["First Target Time",])
 #Write reporting dataframe
 write.table(report,"Results.stat",sep="\t",row.names=TRUE,col.names=TRUE)
 #write(paste("Correlation (Pearson)",cor(x=metrics["Robots in Chain",],y=metrics["Completion Time",], use="all.obs", method="pearson"),sep="\t"),"Result.stat",append = TRUE)
@@ -164,7 +173,7 @@ boxplot(metrics["Robots in Chain",], horizontal=TRUE, axes=FALSE)
 par(fig=c(0.65,1,0,0.8), new=TRUE)
 boxplot(metrics["Completion Time",], axes=FALSE)
 # Title
-mtext(expression(bold("Results Distribution")), side=3, outer=TRUE, line=-3,cex=1.5)
+#mtext(expression(bold("Results Distribution")), side=3, outer=TRUE, line=-3,cex=1.5)
 dev.off()
 
 #Plot empirical CDF of completion times
@@ -176,7 +185,7 @@ dev.off()
 
 #Plot empirical CDF of completion times
 pdf("EcdfRobots.pdf")
-graphTitle <- paste("Empirical cdf of completion time across",length(resultsFiles),"trials")
+graphTitle <- paste("Empirical cdf of number of robots in chain across",length(resultsFiles),"trials")
 plot(ecdf(metrics["Robots in Chain",]),col="blue",xlab="Simulation steps",main=paste("Empirical cdf of completion times across",length(resultsFiles),"trials"))
 title(str(graphTitle))
 dev.off()
