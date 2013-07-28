@@ -4,7 +4,7 @@
 \begin{tikzpicture}[shorten >=1pt,node distance=5cm,on grid,auto] 
    \node[state,initial] (EN)   {Exit Nest}; 
    \node[state,thick] (EX) [below=of EN] {Explorer};
-   \node[state,thick] (EC) [right=of EN] {Chain Extension};
+   \node[state,thick] (EC) [right=of EN] {Chain Following};
    \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
    \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
    \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
@@ -14,11 +14,12 @@
          edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (EC)
     (EX) edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (EC)
          edge [bend right]  node [below,text width=2cm]  {$n_b = 0 \text{} \wedge$ Out of Nest $\wedge \text{} P_{etob}$} (CE)
-    (CE) edge  node  {$n_b > 1$} (CM)
+    (CE) edge node  {$n_b > 1$} (CM)
+           edge [bend left] node [right,text width=1.5cm]  {$d_{cb} < 30[cm]$} (EC)
     (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
     (EC) edge  node [above,text width=1.5cm]  {$n_b = 0 \text{} \wedge$ In Nest} (EN)
            edge  node [text width=1.5cm]  {$n_b > 1 \text{} \wedge$ Out of Nest} (EX) 
-           edge  node [right,text width=1.5cm] {$n_b > 0 \text{} \wedge$ Out of Nest $\wedge \text{} d_{cb} > d_c$} (CE)
+           edge [bend left] node [right,text width=1.5cm] {$n_b == 1 \text{} \wedge$ Out of Nest $\wedge \text{} d_{cb} > d_c$} (CE)
            edge  node {On spot} (SR);
 \end{tikzpicture}
 \captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
@@ -39,69 +40,83 @@ $t_{ns}$ & Delay time on the decision to stop outside the nest & 100 [steps] \\ 
 \label{tab:parameters}
 \end{center}
 
-\paragraph{Vector fields}
-The resulting forces from the aforementioned vector field are determined from the corresponding sensor readings.
-That is, each reading is transformed into a vector whose angle and magnitude depends on the value of the reading itself.
-All the vector are expressed in polar coordinates, in the form (magnitude,angle).
+\subsection{Resulting forces}
 
-\subparagraph{Obstacle avoidance}
+\subsection{States details}
+\paragraph{Exit nest} \label{par:exitnest}
 \begin{equation}
-\mathbf{p_i} = (r_{prox_{i}},\theta_i)  
+  \mathbf{F_{res}} = \mathbf{F_{obs}} + \mathbf{F_{ds}} + \mathbf{F_{rab}}
 \end{equation}
-where $r_{prox_i}$ corresponds to the value of the reading of the $i^{th}$ proximity sensor and $\theta_i$ is the corresponding angle.
 
-\begin{equation}
-\mathbf{sp} = \sum_i \mathbf{p_i}  
-\mathbf{F_{obs}} = (1.5,\theta_{sp})  
-\end{equation}
-where $\theta_{sp}$ corresponds to the angle of $\mathbf{sp}$ vector.
-
-\subparagraph{Distance scanner}
-\begin{equation}
-\mathbf{ds_i} = (1 - \frac{150 - r_{ds_{i}}}{150-4},\theta_i)  
-\end{equation}
-where $r_{prox_i}$ corresponds to the value of the $i^th$ reading of the distance and $\theta_i$ is the corresponding angle.
-
-\begin{equation}
-\mathbf{sds} = \sum_i \mathbf{ds_i}  
-\mathbf{F_{ds}} = (1.0,\theta_{sds})  
-\end{equation}
-where $\theta_{sds}$ corresponds to the angle of $\mathbf{sds}$ vector.
-
-\subparagraph{Range and Bearing}
-\begin{equation}
-\mathbf{F_{rab}} = (1.0,\theta_{rab})  
-\end{equation}
-where $\theta_{rab}$ corresponds to the angle of RAB reading.
-
-\paragraph{Exit nest}
 The exit nest state is the initial state of the robots, which is maintained as long as it remains in the nest.
-Basically, it consist of a wall avoidance behavior, performed using the distance scanner, rotating with angular speed $\omega_{ds}$.
-In fact, the distance scanner is locked in a way that the long range sensors point in the same direction as the robot.
+The robots uses the distance scanner and proximity sensors to find their way out 
+of the nest.
+In addition to those forces, the robot is also attracted (by means of $\mathbf{F_{rab}}$) 
+towards the closest robots in the RAB sensing range that are in the \emph{Explorer} 
+or the \emph{Chain following} state.
+This is done beacause such kind of robots are either directing or already 
+outside of the nest, thus following them will guide a robot in the right 
+direction.
+If a robots senses any kind of beacon it changes its state to \emph{Chain following}
+Otherwise, it passes in \emph{Explorer} state.
 
-The wall avoidance behavior consist in turning clockwise or counterclockwise (depending on the robot) every time a wall is sensed, until the obstacle is not observed anymore.
-
-Moreover, a random turn is performed if the robot has gone straight for more than 90 steps.
-This is done to avoid the fact that the robot could ignore the opening in the nest and keep advancing until the opposite wall is sensed.
-
-If at least one beacon is sensed, the robot heads towards him, in order to be attracted outside the nest.
-Otherwise, if it exists without sensing any beacons, it passes in \emph{Explorer} state.
 \paragraph{Explorer}
+\begin{equation}
+  \mathbf{F_{res}} = \mathbf{F_{obs}} + \mathbf{F_{ds}} + \mathbf{F_{str}}
+\end{equation}
 In the \emph{Explorer} state, if no beacon is sensed, the robot moves outsides the nest without making any decision for $t_{ns}$ time steps, then deciding, at each simulation step, whether to stop or not.
 
 The decision is stochastic and occurs with probability $P_{etob}$.
 
-Otherwise, the robot directs himself to the closest sensed beacon.
+Otherwise, the robot goes straight ($\mathbf{F_{str}} = (1.0,0)$).
+
 In any case, if the agent goes back to the nest, it enters the \emph{Exit Nest} state.
-\paragraph{Directing to beacon}
+
+\paragraph{Chain following} \label{par:chainfollowing}
+\begin{equation}
+  \mathbf{F_{res}} = \mathbf{F_{obs}} + \mathbf{F_{ds}} + \mathbf{F_{str}}
+\end{equation}
+The \emph{Chain Following} state simply consists of a random walk of the robot 
+in the environment.
+
+The robots normally goes straight (guided by $\mathbf{F_{str}} = (1.0,0)$).
+
+Its direction is then modified by the perceived obstacles both in a short range ($\mathbf{F_{obs}}$) and in a long range 
+($\mathbf{F_{ds}}$).
+
+As soon as the distance of a robot from the closest beacon is greater than the minimum chain distance ($d_{cb} > d_c$)
+and exactly one beacon is sensed nearby ($n_b == 1$) (cfr. \nameref{par:rules} (2)) 
+the robots stops and becomes a \emph{Chain End}.
+
+If the robot loses contact with a chain beacon, it turns itself of 180 degrees. before 
+restarting exploration.
+
+In any case, if the agent goes back to the nest, it enters the \emph{Exit Nest} state.
+
 
 \paragraph{Chain End}
+\begin{equation}
+  \mathbf{F_{res}} = (0,0)
+\end{equation}
 The \emph{Chain End} state is reached when a robot connects himself to the current end of the chain, becoming thus the new termination.
+
 In this state, the robot stands still and broadcast information concerning its state, id and chain\_id to the neighboring robots.
-The transition to the \emph{Chain Member state} occurs anytime another agent connects to the current one.
+
+If any beacon is sensed within 30 cm the robot starts moving again, in order to 
+find a better position where to attach in the chain.
+
+The transition to the \emph{Chain Member} state occurs anytime another agent connects to the current one.
 
 \paragraph{Chain Member}
-A \emph{Chain Member} only acts as a beacon, broadcasting state information and acting as a relay for the back-propagation of the "Target found" message.
+\begin{equation}
+  \mathbf{F_{res}} = (0,0)
+\end{equation}
+A \emph{Chain Member} only acts as a beacon, broadcasting state information and acting as a relay for the back-propagation of the \emph{Target found} message.
+A \emph{Chain Member} robot becomes a \emph{Chain Junction} if another robot decides to 
+join the chain by attaching to it.
 
 \paragraph{Chain Junction}
-The sole purpose of a \emph{Chain Junction} is to offer a branching point in the chain to the robots that are navigating through the chain.
+\begin{equation}
+  \mathbf{F_{res}} = (0,0)
+\end{equation}
+The sole purpose of a \emph{Chain Junction} is to differentiate himself from the other beacons and stop the back-propagation of the \emph{Target found} message.

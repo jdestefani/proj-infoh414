@@ -1,5 +1,28 @@
+\section{Introduction}\label{introduction}
+
+The main objective of the project is to develop a chaining strategy for a swarm of robots in an indoor structure, that connects the nest (i.e. the area where the robots are initially located), to five target location spread across the environment (identified by the black dots).
+
+The environment is composed by open corridors, as well as obstacles, like walls and cubic structures (that could represent abstractions for furniture in the the closed environment).
+
+The simulated robots are the \emph{s-bots} \cite{mondada2003swarm}, developed at the EPFL within the framework of the EU-funded Swarm-bots project.
+
+With respect to the real robot configuration, only a limited set of sensors and actuators are used in the project.
+
+To be more precise, robots are able to sense the presence of obstacles in the short range (4-20 cm, by means of IR proximity sensors or short range ultrasonic distance scanner) and in the long range (30-150 cm, by means of long range ultrasonic distance scanner) and detect a variation in the ground color (by means of the IR ground sensors).
+
+Furthermore, they can move around in the environment by means of a pair of treels (a combination of track and wheels), each one connected to differential drive motor.
+
+Robots can communicate through the range and bearing system, that allow them to broadcast a message to neighboring robots and localize the messages sent by other agents in terms of range (receiver-sender distance) and horizontal and vertical bearing (angular displacement of the sender with respect to a reference point on the receiver).
+
+One basic principle in Swarm Robotics is that a collective behavior could emerge from local interactions between the robots and with the environment.
+
+In this project I will develop a controller for a single robot, which will be executed in parallel by all the robots in the swarm, and observe the behavior emerging at the group level.
+
+%The multi-robot simulator used for the simulations, ARGoS 3.0, allows to write the code of the robot controller using Lua, to compile and directly load it on the robot, thus providing a considerable speed-up in the development process.
 \section{Controller overview}
+\subsection{General structure}
 The robot controller has been structured according to the sense-think-act paradigm.
+
 In fact, at each time step, the robots will:
 \begin{enumerate}
   \item \emph{(Sense)} - Read the informations collected by the available sensors.
@@ -12,9 +35,11 @@ In terms of code:
   \item \emph{(Sense)} - The \emph{ParseX} function are used to read the values of the different sensors (proximity, ground, distance scanner and Range and Bearing) and provide information to the following step in a suitable form (e.g. repulsion vector or beacon table).
   \item \emph{(Think)} - The core of the behavior is implemented as a finite state machine (FSM), where each state of the automaton is implemented as function.
   In this way the controller of the robot just need to execute the function corresponding to the agent's current state.
-  \item \emph{(Act)} - According to the position, and the control values computed in the previous step, determine the speeds to actuate on the wheels and the information to broadcast using
+  \item \emph{(Act)} - According to the position, and the control values computed in the previous step, determine the speeds to actuate on the wheels and the information to broadcast using 
+  the Range and Bearing System.
 \end{enumerate}
 
+\subsection{Vector fields}
 According to the principles of the swarm robotics, a behavior at the swarm level should emerge from local interactions at the robot level, using information either coming from the environment or from other robots.
 These interactions have been modeled using a potential-field approach (cf.\cite{howard2002mobile}), based on the readings from the sensors.
 These virtual-potential fields $U_i$ are defined on the whole environment and robots are able to compute locally the force $\mathbf{F}_i$ resulting from the interaction with the corresponding field as:
@@ -29,28 +54,67 @@ For this purpose, the following virtual fields have been defined:
   \item Range and Bearing - $U_{rab}$
 \end{itemize} 
 
-The effects of each of these fields on the robot will be described in detail in the \nameref{sec:sm}.
+The resulting forces from the aforementioned vector fields are determined from the corresponding sensor readings.
+That is, each reading is transformed into a vector whose angle and magnitude depends on the value of the reading itself.
+All the vector are expressed in polar coordinates, in the form (magnitude,angle).
+Note that $\mathbf{F_{obs}}$ and $\mathbf{F_{obs}}$ are repulsive, while $\mathbf{F_{rab}}$ 
+is attractive.
 
+\paragraph{Obstacle avoidance}
+\begin{equation}
+\mathbf{p_i} = (r_{prox_{i}},\theta_i)  
+\end{equation}
+where $r_{prox_i}$ corresponds to the value of the reading of the $i^{th}$ proximity sensor and $\theta_i$ is the corresponding angle.
+
+\begin{align}
+ \mathbf{F_{obs}} = (1.5,\theta_{sp}) \text{    } \mathbf{sp} = \sum_i -\mathbf{p_i}  
+\end{align}
+where $\theta_{sp}$ corresponds to the angle of $\mathbf{sp}$ vector.
+
+\paragraph{Distance scanner}
+\begin{equation}
+\mathbf{ds_i} = (1 - \frac{150 - r_{ds_{i}}}{150-4},\theta_i)  
+\end{equation}
+where $r_{prox_i}$ corresponds to the value of the $i^th$ reading of the distance and $\theta_i$ is the corresponding angle.
+The value of the distance scanner reading is normalized in the range $(4[cm],150[cm])$ 
+(Lower bound short range reading, upper bound long range reading).
+By subtracting the normalized value to 1, one is able to obtain a vector whose 
+magnitude is inversely proportional to the distance from the obstacle.
+
+\begin{align}
+\mathbf{F_{ds}} = (1.0,\theta_{sds}) \text{    }\mathbf{sds} = \sum_i -\mathbf{ds_i} 
+\end{align}
+where $\theta_{sds}$ corresponds to the angle of $\mathbf{sds}$ vector.
+
+\paragraph{Range and Bearing}
+\begin{equation}
+\mathbf{F_{rab}} = (1.0,\theta_{rab})  
+\end{equation}
+where $\theta_{rab}$ corresponds to the angle of RAB reading.
+
+\subsection{General idea}
 The general idea of the method is that the robots should first quit the initial deployment room, characterized by four surrounding walls, one of them containing an opening to let the robots move outside, and a dark grey floor, to then start the exploration phase required to find the target spots.
 
 In order to reduce the interference phenomenon at the exit of the nest, a sequential deployment mechanism based on the robot id has been developed.
 
 After exiting the nest, the agents should explore the environment, either individually (as \emph{explorers}) or using the collectivly-gathered knowledge of the environment (i.e. the chain).
-The exploration of the environment should, in principle, profit of the already available information.
 
+The exploration of the environment should, in principle, profit of the already available information.
 Nevertheless, this method achieves the required chain formation behavior using only the proximity sensors and the distance scanner.
 
 If no information is available, the robot could decide (stochastically) to become a starting point for a new chain in the environment. 
 
+\paragraph{Rules}\label{par:rules}
 The actual chain formation behavior is driven by five simple rules:
 \begin{enumerate}
   \item If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain beacon have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a chain end.
   \item If the \textbf{nest} has been \textbf{left}, and \textbf{exactly one} chain beacon has been \textbf{sensed} at a distance greater than $d_{chain}$, stop and become a chain end.
-  \item If a chain end has more than one neighboring beacon, but less than three, then it changes its state to \emph{Chain member}.
-  \item If a chain member has more than two neighboring beacons, then it changes its state to \emph{Chain junction}.
+  \item If a \textbf{chain end} has \textbf{more than one} neighboring\textbf{ beacon}, but \textbf{less than three}, then it changes its state to \emph{Chain member}.
+  \item If a \textbf{chain member} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{Chain junction}.
   \item The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.
 \end{enumerate}
 
+\paragraph{Chain structure}
 The chain will then be composed by three different kind of robots:
 \begin{itemize}
   \item \textbf{(E) - Chain end:} Any robot connected to at most one other agent.
