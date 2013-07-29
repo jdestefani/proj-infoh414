@@ -359,7 +359,7 @@ end
 
 
 --[[ Function used to send a message having the format:
-		ID State 00 00 00 00 00 00 00 msg
+		ID State Chain_id 00 00 00 00 00 00 msg
 	  using the R&B actuator
  ]]
 function SendMessage(id,state,chain_id,spotFound)
@@ -391,17 +391,7 @@ end
 --[[ Function used to copy and sort the readings of the distance scanner according to their distance.
 	  The distance scanner is a rotating device with four sensors. 
 	  Two sensors are short-range (4cm to 30cm) and two are long-range (20cm to 150cm). 
-     Each sensor returns up to 6 values every time step, for a total of 24 readings (12 short-range and 12 long-range). 
-[t=1341] Robot 26 direction beacon!
-[t=1342] Robot 12 direction beacon!
-[t=1342] Robot 14 direction beacon!
-[t=1342] Robot 16 direction beacon!
-[t=1342] Robot 20 direction beacon!
-[t=1342] Robot 31 direction beacon!
-[t=1342] Robot 34 direction beacon!
-[t=1342] Robot 36 direction beacon!
-[t=1342] Robot 23 direction beacon!
-[t=1342] Robot 26 direction beacon!
+	  Each sensor returns up to 6 values every time step, for a total of 24 readings (12 short-range and 12 long-range). 
 	  Each reading is a table composed of angle in radians and distance in cm.
 	  Distance could be:
 		-> -1, if the object detected by the sensor is closer than the minimum sensor range (4cm for short-range, 20cm for long-range). 
@@ -418,7 +408,8 @@ function ParseDistanceScanner()
    --table.sort(dsLongReadings, function(a,b) return a.distance < b.distance end)
 
 	-- Parsing long distance readings
-	for i=1,#robot.distance_scanner.long_range do 
+	for i=1,#robot.distance_scanner.long_range do
+		-- Discard non-relevant readings
 		if robot.distance_scanner.long_range[i].distance > 0 then
 			dsVec = Vector2:fromPolar(1-(RANGE.DISTANCE_SCANNER:NormalizeInRange(robot.distance_scanner.long_range[i].distance)),robot.distance_scanner.long_range[i].angle)
 			dsVec:Rotate(math.pi)
@@ -432,23 +423,9 @@ function ParseDistanceScanner()
 			if RANGE.JUNCTION_RANGE:WithinBoundsIncluded(robot.distance_scanner.long_range[i].angle) then
 				readingsInJunctionRange = readingsInJunctionRange + 1
 			end
-			--[[if robot.distance_scanner.long_range[i].distance > 0 and robot.distance_scanner.long_range[i].distance < closestObstacleDS.distance then
-				closestObstacleDS = robot.distance_scanner.long_range[i]
-			end]]
 		end
 		readingsInALoop = readingsInALoop + 1
 	end
-
-
-	--[[if readingsCounter > 100 then
-		obstaclePercentage = readingsInJunctionRange/readingsInALoop
-		readingsInALoop = 0
-		readingsInJunctionRange = 0
-		readingsCounter = 0
-	else
-		readingsCounter = readingsCounter + 1
-	end]]
-
 	
 	
 	for i=1,#robot.distance_scanner.short_range do
@@ -473,21 +450,20 @@ end
 --[[ Function used to parse the ground sensors: 
 							2		1 
 							3	 	4
+	  The value goes from 0 or 1, where 0 means black, and 1 means white.
 	  Returns an encoding of the position of the robot with respect to the spot
 	  
 	]]
 function ParseGroundSensors()
 	local GREY_RANGE = Range:new(0.858039,0.958039)
 
-	--[[log("Robot "..robotId..": 1 -"..robot.motor_ground[1].value)
-	log("Robot "..robotId..": 2 -"..robot.motor_ground[2].value)
-	log("Robot "..robotId..": 3 -"..robot.motor_ground[3].value)
-	log("Robot "..robotId..": 4 -"..robot.motor_ground[4].value)]]
-	
+
+	-- If the robot senses white ground with all the sensors, then it is outside of the nest.
 	if((robot.motor_ground[1].value == 1) and (robot.motor_ground[2].value == 1) and (robot.motor_ground[3].value == 1) and (robot.motor_ground[4].value == 1) ) then
 		return POSITION.OUT_OF_NEST
 	end
 	
+	-- If the robot senses grey ground with all the sensors, then it is inside of the nest.
 	if((GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
  		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
 		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
@@ -495,32 +471,37 @@ function ParseGroundSensors()
 		return POSITION.IN_NEST
 	end	
 
-
+	-- If the robot senses black ground with all the sensors, then it is on one of the spot.
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0) ) then
 		return POSITION.IN_SPOT
 	end
 	
+	-- If the robot senses black ground with the front sensors (1-2) but white with the rear sensors (3-4), then its front is on a spot.
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[2].value == 0) and
 		(robot.motor_ground[3].value == 1) and (robot.motor_ground[4].value == 1)) then
 		return POSITION.FRONT_IN_SPOT
 	end
 	
+	-- If the robot senses black ground with the rear sensors (3-4) but white with the front sensors (1-2), then its rear is on a spot.
 	if((robot.motor_ground[3].value == 0) and (robot.motor_ground[4].value == 0) and
 		(robot.motor_ground[1].value == 1) and (robot.motor_ground[2].value == 1)) then
 		return POSITION.BACK_IN_SPOT;
 	end
 
+	-- If the robot senses black ground with the left sensors (2-3) but white with the right sensors (1-4), then its left is on a spot.
 	if((robot.motor_ground[2].value == 0) and (robot.motor_ground[3].value == 0) and
 		(robot.motor_ground[1].value == 1) and (robot.motor_ground[4].value == 1)) then
-		return POSITION.RIGHT_IN_SPOT 
+		return POSITION.LEFT_IN_SPOT 
 	end
 
+	-- If the robot senses black ground with the right sensors (1-4) but white with the left sensors (2-3), then its right is on a spot.
 	if((robot.motor_ground[1].value == 0) and (robot.motor_ground[4].value == 0) and
 		(robot.motor_ground[2].value == 1) and (robot.motor_ground[3].value == 1)) then
-		return POSITION.LEFT_IN_SPOT
+		return POSITION.RIGHT_IN_SPOT
 
 	end
 
+	-- If the robot senses grey ground with the front sensors (1-2) but white with the rear sensors (3-4), then its front is in the nest.
 	if((GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
  		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
 		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
@@ -528,6 +509,7 @@ function ParseGroundSensors()
 		return POSITION.FRONT_IN_NEST;
 	end
 	
+	-- If the robot senses grey ground with the rear sensors (3-4) but white with the front sensors (1-2), then its rear is in the nest.
 	if(not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
  		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
 		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
@@ -535,18 +517,20 @@ function ParseGroundSensors()
 		return POSITION.BACK_IN_NEST;
 	end
 
+	-- If the robot senses grey ground with the left sensors (2-3) but white with the right sensors (1-4), then its left is on a spot.
 	if(not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
  		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
 		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
 		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[4].value))) then 
-		return POSITION.RIGHT_IN_NEST
+		return POSITION.LEFT_IN_NEST
 	end
 
+	-- If the robot senses grey ground with the right sensors (2-3) but white with the left sensors (1-4), then its right is on a spot.
 	if((GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[1].value)) and
  		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[2].value)) and
 		not (GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[3].value)) and 
 		(GREY_RANGE:WithinBoundsIncluded(robot.motor_ground[4].value))) then
-		return POSITION.LEFT_IN_NEST
+		return POSITION.RIGHT_IN_NEST
 	end
 
 	return POSITION.OUT_OF_NEST;
@@ -571,13 +555,20 @@ function ParseRAB()
 	robot.neighbors = {in_nest = 0, explorer = 0, attaching = 0, following = 0, chain_ends = 0, chain_members = 0,  chain_junctions = 0, chain_beacons = 0, in_spot = 0}
 	sensedBeacons = {}
 
-	for i=1,#robot.range_and_bearing do 
+	for i=1,#robot.range_and_bearing do
+		-- 1. Count neighbors in each state
+		-- 2. If relevant and closest one of a certain type, update reference to closest beacon
+		-- 3. Update table of sensed beacons
+		
 		if (robot.range_and_bearing[i]).data[2] == STATE.EXIT_NEST.encoding then
+			-- 1.
 			robot.neighbors.in_nest = robot.neighbors.in_nest + 1 
 		end
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.EXPLORER.encoding then
+			-- 1.
 			robot.neighbors.explorer = robot.neighbors.explorer + 1 
+			-- 2.
 			if (robot.range_and_bearing[i]).range < closestExplorer.distance then
 					closestExplorer = {id = (robot.range_and_bearing[i]).data[1] , 
 										  chain_id = (robot.range_and_bearing[i]).data[3], 
@@ -589,7 +580,9 @@ function ParseRAB()
 		end
 		
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_FOLLOWING.encoding then
+			-- 1.
 			robot.neighbors.following = robot.neighbors.following + 1 
+			-- 2.
 			if (robot.range_and_bearing[i]).range < closestFollower.distance then
 					closestFollower = {id = (robot.range_and_bearing[i]).data[1] , 
 										  chain_id = (robot.range_and_bearing[i]).data[3], 
@@ -601,16 +594,19 @@ function ParseRAB()
 		end
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.ATTACHING.encoding then
+			-- 1.
 			robot.neighbors.attaching = robot.neighbors.attaching + 1 
 		end
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.SPOT_REACHED.encoding then
+			-- 2.
 			robot.neighbors.in_spot = robot.neighbors.in_spot + 1 
 		end
 		
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_END.encoding then
+			-- 1.
 			robot.neighbors.chain_ends = robot.neighbors.chain_ends + 1
-			sensedBeacons [(robot.range_and_bearing[i].data[1])] = 1
+			-- 3.
 			sensedBeacons[(robot.range_and_bearing[i].data[1])] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
 																					   distance = (robot.range_and_bearing[i]).range, 
 																						angle = (robot.range_and_bearing[i]).horizontal_bearing, 
@@ -619,7 +615,9 @@ function ParseRAB()
 		end
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_MEMBER.encoding then
+			-- 1.
 			robot.neighbors.chain_members = robot.neighbors.chain_members + 1
+			-- 3.
 			sensedBeacons[(robot.range_and_bearing[i].data[1])] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
 																					   distance = (robot.range_and_bearing[i]).range, 
 																						angle = (robot.range_and_bearing[i]).horizontal_bearing, 
@@ -628,7 +626,9 @@ function ParseRAB()
 		end
 
 		if (robot.range_and_bearing[i]).data[2] == STATE.CHAIN_JUNCTION.encoding then
+			-- 1.
 			robot.neighbors.chain_junctions = robot.neighbors.chain_junctions + 1
+			-- 3.
 			sensedBeacons[(robot.range_and_bearing[i].data[1])] = {chain_id = (robot.range_and_bearing[i]).data[3], 	
 																					   distance = (robot.range_and_bearing[i]).range, 
 																						angle = (robot.range_and_bearing[i]).horizontal_bearing, 
@@ -640,6 +640,7 @@ function ParseRAB()
 			(robot.range_and_bearing[i]).data[2] == STATE.CHAIN_MEMBER.encoding or 
 			(robot.range_and_bearing[i]).data[2] == STATE.CHAIN_END.encoding  then
 
+			-- 2.
 			if (robot.range_and_bearing[i]).range < closestBeacon.distance then
 					closestBeacon = {id = (robot.range_and_bearing[i]).data[1] , 
 										  chain_id = (robot.range_and_bearing[i]).data[3], 
@@ -649,6 +650,7 @@ function ParseRAB()
 										  spotFound = (robot.range_and_bearing[i]).data[4] }
 			end
 			
+			-- 2.
 			if (robot.range_and_bearing[i]).range > farthestBeacon.distance then
 					farthestBeacon = {id = (robot.range_and_bearing[i]).data[1] , 
 										  chain_id = (robot.range_and_bearing[i]).data[3], 
@@ -660,6 +662,8 @@ function ParseRAB()
 		end
 	
 	end
+	
+	-- 1.
 	robot.neighbors.chain_beacons = robot.neighbors.chain_members +
 												robot.neighbors.chain_junctions +
 												robot.neighbors.chain_ends 
@@ -669,6 +673,7 @@ end
 
 function ExitNestBehavior()
 	
+	-- Set the repulsion vector, derived from the distance scanner readings
 	dsRepulsionVec = Vector2:fromPolar(1.0,dsRepulsionVec:angle())
 
 	-- If the robot senses any type of beacons, it direct itself towards it
@@ -679,11 +684,13 @@ function ExitNestBehavior()
 		return 
 	end
 	
+	-- If a neighboring explored is sensed, then follow it.
 	if robot.neighbors.explorer > 0 then
 		desiredDirection:SetFromPolar(1.0,closestExplorer.angle)
 		return 
 	end
 
+	-- If a neighboring chain follower is sensed, then follow it
 	if robot.neighbors.following > 0 then
 		desiredDirection:SetFromPolar(1.0,closestFollower.angle)
 		return 
@@ -701,17 +708,20 @@ end
 
 function ExplorerBehavior()
 
+	-- If any beacons are sensed, change state.
 	if robot.neighbors.chain_beacons > 0 then
 		robot.state = STATE.CHAIN_FOLLOWING
 		log("Robot "..robotId.." following chain!")
 		return 
 	end
 	
+	-- If the robot goes back to nest, try to exit it again.
 	if position ==	POSITION.IN_NEST then
 		robot.state = STATE.EXIT_NEST
 		return
 	end
 
+	-- Probabilistic attachment rule to determine the beginning of the chain, with determistic delay.
 	if noStopSteps < 0 then	
 		if robot.neighbors.chain_beacons == 0 then	
 			if robot.random.uniform() < CONTROLLER_PARAMETER.EXPLORER_TO_BEACON_PROBABILITY and position == POSITION.OUT_OF_NEST then
@@ -732,16 +742,19 @@ end
 
 function ChainFollowingBehavior()
 		
+		-- Set the repulsion vector, derived from the distance scanner readings
 		dsRepulsionVec = Vector2:fromPolar(1.0,dsRepulsionVec:angle())
 		
 		local maxId = -1
 		local maxSensedChainId = -1
 
+		-- If the robot goes back to nest, try to exit it again.
 		if position == POSITION.IN_NEST then
 			robot.state = STATE.EXIT_NEST
 			return
 		end
 
+		-- Attachment rule
 		if position == POSITION.OUT_OF_NEST 
 			and robot.neighbors.chain_beacons == 1 
 			and closestBeacon.distance > CONTROLLER_PARAMETER.CHAIN_DISTANCE then
@@ -756,7 +769,7 @@ function ChainFollowingBehavior()
 
 		-- In no beacons are sensed...
 		if robot.neighbors.chain_beacons == 0 then
-			-- 5. If <beacon lost>, stop
+			-- ..Perform half turn
 			if not isStopped then
 				log("Robot "..robotId.." lost!")
 			end
@@ -767,6 +780,7 @@ function ChainFollowingBehavior()
 			return
 		end
 
+		-- If the robot is stopped while sensing other beacons, make it move againg
 		if robot.neighbors.chain_beacons > 0 then
 			if isStopped then
 				isStopped = false
@@ -777,7 +791,7 @@ function ChainFollowingBehavior()
 
 end
 
-function AttachingBehavior()
+--[[function AttachingBehavior()
 	
 	local targetExists = false
 	local maxId = -1
@@ -827,17 +841,18 @@ function AttachingBehavior()
 		desiredDirection:SetFromPolar(1.0,0.0)
 		return
 	end
-
-end
+end ]]--
 
 
 function ChainEndBehavior()
-
+	
+	-- If another beacon is sensed nearby (30cm) start moving again to find a better attaching position
 	if closestBeacon.distance < 30 then
 		robot.state = STATE.CHAIN_FOLLOWING
 		return
 	end	
 
+	-- If more than one beacon is sensed than become a chain member.
 	if robot.neighbors.chain_beacons > 1 then
 		robot.state = STATE.CHAIN_MEMBER
 		log("Robot "..robotId..": Chain member.")
@@ -855,6 +870,7 @@ function ChainMemberBehavior()
 		end
 	end
 
+	-- If more than two beacons are sensed than become a chain junction.
 	if robot.neighbors.chain_beacons > 2 then
 		robot.state = STATE.CHAIN_JUNCTION
 		log("Robot "..robotId..": Chain junction.")
@@ -865,12 +881,5 @@ end
 
 function ChainJunctionBehavior()
 	--The backpropagation should stop once a junction beacon is reached
-	--[[for key,value in pairs(sensedBeacons) do
-		if value.spotFound and value.chain_id > robot.chain_id then
-			if not spotFound then
-				spotFound = true
-			end
-		end
-	end]]
 end
 		

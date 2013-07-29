@@ -59,7 +59,7 @@ plotRobotInChain <- function(inChainPlot){
   #title(graphTitle)
   
   #Add a legend 
-  legend(x="bottomleft", colnames(inChainPlot), cex=0.8, col=plotColors, lty=lineType, title="Percentiles")
+  legend(x="bottomright", colnames(inChainPlot), cex=0.8, col=plotColors, lty=lineType, title="Percentiles")
   dev.off()
   
   write.table(inChainPlot,"RobotInChainPlots.plt",sep="\t",row.names=FALSE,col.names=TRUE)
@@ -84,7 +84,7 @@ plotRobotOnTarget <- function(onSpotPlot){
   #title(graphTitle)
 
   #Add a legend 
-  legend(x="bottomleft", colnames(onSpotPlot), cex=0.8, col=plotColors, lty=lineType, title="Percentiles")
+  legend(x="bottomright", colnames(onSpotPlot), cex=0.8, col=plotColors, lty=lineType, title="Percentiles")
   dev.off()
 
   write.table(onSpotPlot,"RobotOnSpotPlots.plt",sep="\t",row.names=FALSE,col.names=TRUE)
@@ -162,10 +162,11 @@ write.table(report,"Results.stat",sep="\t",row.names=TRUE,col.names=TRUE)
 pdf("ResultsDistribution.pdf")
 par(fig=c(0,0.8,0,0.8), new=TRUE)
 plot(x=metrics["Robots in Chain",],y=metrics["Completion Time",],col=rgb(0,100,0,80,maxColorValue=255), pch=19 , xlab="Robots in Chain",
-     ylab="Completion Time")
+     ylab="Completion Time",cex=0.8)
 # Fit lines
 abline(lm(metrics["Completion Time",]~metrics["Robots in Chain",]), col="red") # regression line (y~x) 
-lines(lowess(metrics["Robots in Chain",],metrics["Completion Time",]), col="blue") # lowess line (x,y)
+#lines(lowess(metrics["Robots in Chain",],metrics["Completion Time",]), col="blue") # lowess line (x,y)
+#legend(x="bottomright", c(), cex=0.8, col=plotColors, lty=lineType, title="Lines")
 # Boxplot X-Axis
 par(fig=c(0,0.8,0.55,1), new=TRUE)
 boxplot(metrics["Robots in Chain",], horizontal=TRUE, axes=FALSE)
@@ -173,26 +174,32 @@ boxplot(metrics["Robots in Chain",], horizontal=TRUE, axes=FALSE)
 par(fig=c(0.65,1,0,0.8), new=TRUE)
 boxplot(metrics["Completion Time",], axes=FALSE)
 # Title
-#mtext(expression(bold("Results Distribution")), side=3, outer=TRUE, line=-3,cex=1.5)
+mtext(expression(bold("Scatterplot of robots in chain vs completion time")), side=3, outer=TRUE, line=-3,cex=1.0)
 dev.off()
 
 #Plot empirical CDF of completion times
-pdf("EcdfTime.pdf")
-graphTitle <- paste("Empirical cdf of completion time across",length(resultsFiles),"trials")
-plot(ecdf(metrics["Completion Time",]),col="blue",xlab="Simulation steps",main=paste("Empirical cdf of completion times across",length(resultsFiles),"trials"))
-title(str(graphTitle))
+pdf("Distributions.pdf")
+par(mfrow=c(2,2))
+hist(metrics["Completion Time",],col="blue",xlab="Simulation steps", main=paste("Histogram of completion times\nacross",length(resultsFiles),"trials"))
+plot(ecdf(metrics["Completion Time",]),col="blue",xlab="Simulation steps",main=paste("Empirical cdf of completion times\nacross",length(resultsFiles),"trials"))
+hist(metrics["Robots in Chain",],col="orange",xlab="Robots",main=paste("Histogram of number of robots in chain\nacross",length(resultsFiles),"trials"))
+plot(ecdf(metrics["Robots in Chain",]),col="orange",xlab="Robots",main=paste("Empirical cdf number of robots in chain\nacross",length(resultsFiles),"trials"))
 dev.off()
 
-#Plot empirical CDF of completion times
-pdf("EcdfRobots.pdf")
-graphTitle <- paste("Empirical cdf of number of robots in chain across",length(resultsFiles),"trials")
-plot(ecdf(metrics["Robots in Chain",]),col="blue",xlab="Simulation steps",main=paste("Empirical cdf of completion times across",length(resultsFiles),"trials"))
-title(str(graphTitle))
-dev.off()
+#plotRobotInChain(inChainPlot)
+#plotRobotOnTarget(onTargetPlot)
 
-plotRobotInChain(inChainPlot)
-plotRobotOnTarget(onTargetPlot)
+print("Correlation - Pearson")
+print(cor(x=metrics["Robots in Chain",],y=metrics["Completion Time",],method="pearson"))
+print(cor.test(x=metrics["Robots in Chain",],y=metrics["Completion Time",],method="pearson"))
 
+print("Correlation - Kendall")
+print(cor(x=metrics["Robots in Chain",],y=metrics["Completion Time",],method="kendall"))
+print(cor.test(x=metrics["Robots in Chain",],y=metrics["Completion Time",],method="kendall"))
+
+print("Correlation - Spearman")
+print(cor(x=metrics["Robots in Chain",],y=metrics["Completion Time",],method="spearman"))
+print(cor.test(x=metrics["Robots in Chain",],y=metrics["Completion Time",],method="spearman"))
 #Output analysis result
 #sprintf("Time required to get 25%% coverage: %.0f",firstQuartileOccupation[1])
 #sprintf("Time required to get 50%% coverage: %.0f",secondQuartileOccupation[1])

@@ -60,7 +60,10 @@ fi
 
 #Case local and cluster
 USERNAME=`whoami`
-RESULTSDIR="/home/${USERNAME}/INFO-H-414/Results/"
+#Development
+#RESULTSDIR="/home/${USERNAME}/INFO-H-414/Results/"
+#Deste
+RESULTSDIR="/home/${USERNAME}/workspace/INFO-H-414/Results/"
 XMLDIR=${RESULTSDIR}${EXPERIMENT_NAME}"/xml/"
 
 #clean_old_runs $XMLDIR$EXPERIMENT_NAME $XMLDIR$EXPERIMENT_NAME 

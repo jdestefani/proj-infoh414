@@ -1,3 +1,11 @@
+\subsection{References}
+
+Concerning the chain formation rules, the main sources of inspiration were \cite{nouyan2004chain}, \cite{nouyan2008path} which helped me to better understand the chain structure (in particular, how to distinguish elements in the chain) and the chain navigation behavior (which have not been implemented here) and \cite{goss1992harvesting} for defining the conditions to extend the chain.
+
+Furthermore, the idea of an incremental deployment has been taken from \cite{stirling2013energy}.
+While in \cite{stirling2013energy} the incremental deployment was used to limit energy consumption in the deployment phase, here the same idea is used to prevent the interference phenomenon that could occur at the nest exit.
+In fact, whenever a relevant number of robots (10+) tries to exit the nest at the same time, each agent will spend more time performing obstacle avoidance with respect to one another, rather than actually exiting the nest.
+
 \section{Controller details} \label{sec:sm}
 
 \begin{center}
@@ -120,3 +128,37 @@ join the chain by attaching to it.
   \mathbf{F_{res}} = (0,0)
 \end{equation}
 The sole purpose of a \emph{Chain Junction} is to differentiate himself from the other beacons and stop the back-propagation of the \emph{Target found} message.
+
+\section{Results} \label{sec:results}
+\subsection{Metric definitions}\label{subsec:metric}
+The developed method will be characterized by two metrics:
+\begin{enumerate}
+  \item Number of robots in chain (counted using the \verb|robot.in_chain| variable)
+  \item Completion time (i.e. time needed to form a chain connecting  all the nest to all the 5 targets present in the environment).
+\end{enumerate}
+The metrics have been measured on 50 experiments, each one of them was run using a randomly generated seed using the \verb|RANDOM| environment variable predefined on the Bash shell.
+Each second is simulated by 10 simulation steps.
+Since the strategy is mainly based on a random exploration, its performance can be regarded as a baseline value for comparison with more advanced methods.
+
+\subsection{Communication range influence}\label{subsec:comrange}
+The robots communicate among themselves by means of the Range and Bearing 
+system, whose range is left to the default value given in the configuration file 
+($150[cm]$).
+
+In the method, the main functions of this communication system are:
+\begin{itemize}
+  \item Attract the robots outside the nest (cf. \nameref{par:exitnest})
+  \item Determine the attaching point to the chain (cf. \nameref{par:chainfollowing})
+\end{itemize}
+
+By reducing the communication range one would expect that:
+\begin{itemize}
+  \item An higher number of robots would be required to form the 
+chain (since the robots would be closer to each other).
+\item The process of exiting the nest would be slower (since less neighboring robots will be sensed).
+\end{itemize}
+On the other hand, since the chain following behavior consists of a random walk, 
+I believe that the reduction of the communication range would not affect this 
+component of the behavior.
+
+Unfortunately, an extensive study on the effect of the communication range, and thus the scalability of the method hasn't been performed within this project.

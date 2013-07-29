@@ -236,7 +236,6 @@
 \newcommand{\hmwkClassTime}{} % Class/lecture time
 \newcommand{\hmwkClassInstructor}{Prof. M. Dorigo} % Teacher/lecturer
 \newcommand{\hmwkAuthorName}{Jacopo De Stefani} % Your name
-\newcommand{\maxmin}{$\mathcal{MAX}-\mathcal{MIN}$}
 
 %----------------------------------------------------------------------------------------
 %	TITLE PAGE
@@ -275,20 +274,15 @@
 \include{Results}
 
 
-\section{Conclusions}
-To summarize the results from the previous analysis:
-\begin{itemize}
-    \item On this set of instances, the Simulated Annealing algorithm performs generally better than Ant Colony Optimization.
-   \item Simulated Annealing is able to generate an higher percentage of feasible and high quality solutions. 
-  \item I believe that the strong limitation of computation times, with respect to VND, has a strong impact on the performance of the algorithms as the generally low probability of finding high quality solutions shows, for ACO in particular.
-  \item Further improvement on the ACO algorithm could be made by implementing the original \maxmin system and using an heuristic which could make a better use of the locally available information and guide the algorithm towards feasible solutions.
-  \item While the performances of the ACO system are comparable, if not slightly worse than the best VND algorithm implemented in the previous implementation exercise, SA has considerably low run-times required to find high-quality solution and higher percentages of feasible solutions, thus outperforming both the aforementioned algorithms.
-  \item The usage of average statistics as metrics to measure the quality of the algorithms is strongly biased by the presence of outliers (penalization, in this case).
-\end{itemize}
+% \section{Conclusions}
+% To summarize the results from the previous analysis:
+% \begin{itemize}
+%     \item On this set of instances, the Simulated Annealing algorithm performs generally better than Ant Colony Optimization.
+%    \item Simulated Annealing is able to generate an higher percentage of feasible and high quality solutions. 
+%   \item I believe that the strong limitation of computation times, with respect to VND, has a strong impact on the performance of the algorithms as the generally low probability of finding high quality solutions shows, for ACO in particular.
+%   \item While the performances of the ACO system are comparable, if not slightly worse than the best VND algorithm implemented in the previous implementation exercise, SA has considerably low run-times required to find high-quality solution and higher percentages of feasible solutions, thus outperforming both the aforementioned algorithms.
+%   \item The usage of average statistics as metrics to measure the quality of the algorithms is strongly biased by the presence of outliers (penalization, in this case).
+% \end{itemize}
 
-
-
-\bibliographystyle{plain}
-\bibliography{References}
 
 \end{document}
