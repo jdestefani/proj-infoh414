@@ -98,7 +98,7 @@ void CLandmarks::PostStep() {
     * Get a map of all the foot-bots
     * The map is organized by robot id
     */
-   CSpace::TMapPerType& cFBMap = m_cSpace.GetEntitiesByType("footbot");
+   CSpace::TMapPerType& cFBMap = m_cSpace.GetEntitiesByType("foot-bot");
    /* Go through each foot-bot */
    for(CSpace::TMapPerType::iterator it = cFBMap.begin(); it != cFBMap.end(); ++it) {
       /* Create a reference for easier coding */

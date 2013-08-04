@@ -1,12 +1,4 @@
-\subsection{References}
-
-Concerning the chain formation rules, the main sources of inspiration were \cite{nouyan2004chain}, \cite{nouyan2008path} which helped me to better understand the chain structure (in particular, how to distinguish elements in the chain) and the chain navigation behavior (which have not been implemented here) and \cite{goss1992harvesting} for defining the conditions to extend the chain.
-
-Furthermore, the idea of an incremental deployment has been taken from \cite{stirling2013energy}.
-While in \cite{stirling2013energy} the incremental deployment was used to limit energy consumption in the deployment phase, here the same idea is used to prevent the interference phenomenon that could occur at the nest exit.
-In fact, whenever a relevant number of robots (10+) tries to exit the nest at the same time, each agent will spend more time performing obstacle avoidance with respect to one another, rather than actually exiting the nest.
-
-\section{Controller details} \label{sec:sm}
+\section{Controller} \label{sec:sm}
 
 \begin{center}
 \begin{tikzpicture}[shorten >=1pt,node distance=5cm,on grid,auto] 
@@ -18,22 +10,26 @@ In fact, whenever a relevant number of robots (10+) tries to exit the nest at th
    \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
    \node[state,accepting,thick] (CJ) [below left=of CM] {Chain Junction};
     \path[->] 
-    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{} n_b = 0$} (EX)
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
          edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (EC)
     (EX) edge [bend left]  node [above,text width=2cm]  {$n_b >0$} (EC)
-         edge [bend right]  node [below,text width=2cm]  {$n_b = 0 \text{} \wedge$ Out of Nest $\wedge \text{} P_{etob}$} (CE)
+         edge [bend right]  node [below,text width=2cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
     (CE) edge node  {$n_b > 1$} (CM)
            edge [bend left] node [right,text width=1.5cm]  {$d_{cb} < 30[cm]$} (EC)
     (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
-    (EC) edge  node [above,text width=1.5cm]  {$n_b = 0 \text{} \wedge$ In Nest} (EN)
-           edge  node [text width=1.5cm]  {$n_b > 1 \text{} \wedge$ Out of Nest} (EX) 
-           edge [bend left] node [right,text width=1.5cm] {$n_b == 1 \text{} \wedge$ Out of Nest $\wedge \text{} d_{cb} > d_c$} (CE)
+    (EC) edge  node [above,text width=1.5cm]  {$n_b = 0 \text{ } \wedge$ In Nest} (EN)
+           edge  node [text width=1.5cm]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+           edge [bend left] node [right,text width=2cm] {$n_b == 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
            edge  node {On spot} (SR);
 \end{tikzpicture}
 \captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
 \end{center}
 
-\paragraph{Controller parameters}
+The behavior of the robot in each state is detailed in \nameref{subsec:states}, reporting in each case the resulting virtual force $\mathbf{F_{res}}$ applied to the robot.
+
+The nodes marked as final (i.e. those having the double border) corresponds to the states where the robot has stopped moving.
+
+\paragraph{Parameters}
 \begin{center}
 \begin{tabular}{|c|c|c|}
 \hline
@@ -48,9 +44,7 @@ $t_{ns}$ & Delay time on the decision to stop outside the nest & 100 [steps] \\ 
 \label{tab:parameters}
 \end{center}
 
-\subsection{Resulting forces}
-
-\subsection{States details}
+\subsection{States} \label{subsec:states}
 \paragraph{Exit nest} \label{par:exitnest}
 \begin{equation}
   \mathbf{F_{res}} = \mathbf{F_{obs}} + \mathbf{F_{ds}} + \mathbf{F_{rab}}
@@ -59,12 +53,14 @@ $t_{ns}$ & Delay time on the decision to stop outside the nest & 100 [steps] \\ 
 The exit nest state is the initial state of the robots, which is maintained as long as it remains in the nest.
 The robots uses the distance scanner and proximity sensors to find their way out 
 of the nest.
+
 In addition to those forces, the robot is also attracted (by means of $\mathbf{F_{rab}}$) 
 towards the closest robots in the RAB sensing range that are in the \emph{Explorer} 
 or the \emph{Chain following} state.
 This is done beacause such kind of robots are either directing or already 
 outside of the nest, thus following them will guide a robot in the right 
 direction.
+
 If a robots senses any kind of beacon it changes its state to \emph{Chain following}
 Otherwise, it passes in \emph{Explorer} state.
 
@@ -127,38 +123,5 @@ join the chain by attaching to it.
 \begin{equation}
   \mathbf{F_{res}} = (0,0)
 \end{equation}
-The sole purpose of a \emph{Chain Junction} is to differentiate himself from the other beacons and stop the back-propagation of the \emph{Target found} message.
+The sole purpose of a \emph{Chain Junction} is to differentiate itself from the other beacons and stop the back-propagation of the \emph{Target found} message.
 
-\section{Results} \label{sec:results}
-\subsection{Metric definitions}\label{subsec:metric}
-The developed method will be characterized by two metrics:
-\begin{enumerate}
-  \item Number of robots in chain (counted using the \verb|robot.in_chain| variable)
-  \item Completion time (i.e. time needed to form a chain connecting  all the nest to all the 5 targets present in the environment).
-\end{enumerate}
-The metrics have been measured on 50 experiments, each one of them was run using a randomly generated seed using the \verb|RANDOM| environment variable predefined on the Bash shell.
-Each second is simulated by 10 simulation steps.
-Since the strategy is mainly based on a random exploration, its performance can be regarded as a baseline value for comparison with more advanced methods.
-
-\subsection{Communication range influence}\label{subsec:comrange}
-The robots communicate among themselves by means of the Range and Bearing 
-system, whose range is left to the default value given in the configuration file 
-($150[cm]$).
-
-In the method, the main functions of this communication system are:
-\begin{itemize}
-  \item Attract the robots outside the nest (cf. \nameref{par:exitnest})
-  \item Determine the attaching point to the chain (cf. \nameref{par:chainfollowing})
-\end{itemize}
-
-By reducing the communication range one would expect that:
-\begin{itemize}
-  \item An higher number of robots would be required to form the 
-chain (since the robots would be closer to each other).
-\item The process of exiting the nest would be slower (since less neighboring robots will be sensed).
-\end{itemize}
-On the other hand, since the chain following behavior consists of a random walk, 
-I believe that the reduction of the communication range would not affect this 
-component of the behavior.
-
-Unfortunately, an extensive study on the effect of the communication range, and thus the scalability of the method hasn't been performed within this project.
