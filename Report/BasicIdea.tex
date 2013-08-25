@@ -11,9 +11,8 @@ In fact, at each time step, the robots will:
 
 In terms of code:
 \begin{enumerate}
-  \item \emph{(Sense)} - The \emph{ParseX} function are used to read the values of the different sensors (proximity, ground, distance scanner and Range and Bearing) and provide information to the following step in a suitable form (e.g. repulsion vector or beacon table).
+  \item \emph{(Sense)} - The \emph{ParseX} functions are used to read the values of the different sensors (proximity, ground, distance scanner and Range and Bearing) and provide information to the following step in a suitable form (e.g. repulsion vector or beacon table).
   \item \emph{(Think)} - The core of the behavior is implemented as a finite state machine (FSM), where each state is implemented as function.
-  In this way the controller of the robot just need to execute the function corresponding to the agent's current state.
   \item \emph{(Act)} - According to the position, and the control values computed in the previous step, determine the speeds to actuate on the wheels and the information to broadcast using 
   the Range and Bearing System.
 \end{enumerate}
@@ -21,7 +20,7 @@ In terms of code:
 \subsection{Potential field approach}
 Researchers in Swarm Robotics try to understand how a behavior at the swarm level could emerge from local interactions at the robot level, using information either coming from the environment or from other robots.
 
-Among the different models of these interactions that can be found in the literature, I decided to apply the potential-field approach (cf.\cite{howard2002mobile}), based on the readings from the sensors.
+Among the different models of these interactions that can be found in the literature, I decided to apply the potential-field approach (cf. \cite{howard2002mobile}), based on the readings from the sensors.
 
 These virtual potential fields $U_i$ are defined on the whole environment and robots are able to compute locally the force $\mathbf{F}_i$ resulting from the interaction with the corresponding field as:
 \begin{equation}
@@ -36,34 +35,41 @@ For this purpose, the following virtual fields have been defined:
 \end{itemize} 
 
 The resulting forces from the aforementioned vector fields are determined from the corresponding sensor readings.
+
 That is, each reading is transformed into a vector whose angle and magnitude depends on the value of the reading itself.
 All the vector are expressed in polar coordinates, in the form ($\rho$\emph{(Magnitude)},$\alpha$\emph{(Angle)}).
-Note that $\mathbf{F_{obs}}$ and $\mathbf{F_{obs}}$ are repulsive, while $\mathbf{F_{rab}}$ 
-is attractive.
+Note that $\mathbf{F_{obs}}$ and $\mathbf{F_{ds}}$ are repulsive, while $\mathbf{F_{rab}}$ 
+is attractive and that $\mathbf{F_{obs}}$ is magnitude is twice as big as those of $\mathbf{F_{ds}}$ and $\mathbf{F_{rab}}$.
 
 \paragraph{Obstacle avoidance}
-\begin{equation}
+The readings from the proximity sensors could be expressed as vectors:
+\begin{equation} \label{eq:pi}
 \mathbf{p_i} = (r_{prox_{i}},\theta_i)  
 \end{equation}
 where $r_{prox_i}$ corresponds to the value of the reading of the $i^{th}$ proximity sensor and $\theta_i$ is the corresponding angle.
 
+The resulting force $\mathbf{F_{obs}}$ is then computed by summing up all the vectors obtained in \ref{eq:pi} and rescaling the result:
 \begin{align}
- \mathbf{F_{obs}} = (1.5,\theta_{sp}) & & \mathbf{sp} = \sum_i -\mathbf{p_i}  
+\mathbf{sp} = \sum_i -\mathbf{p_i} & & \mathbf{F_{obs}} = (2.0,\theta_{sp})   
 \end{align}
 where $\theta_{sp}$ corresponds to the angle of $\mathbf{sp}$ vector.
 
 \paragraph{Distance scanner}
-\begin{equation}
-\mathbf{ds_i} = (1 - \frac{150 - r_{ds_{i}}}{150-4},\theta_i)  
-\end{equation}
-where $r_{prox_i}$ corresponds to the value of the $i^{th}$ reading of the distance and $\theta_i$ is the corresponding angle.
-The value of the distance scanner reading is normalized in the range $(4[cm],150[cm])$ 
+The same principle as above is applied to the distance scanner readings.
+
+In addition, each reading value is normalized in the range $(4[cm],150[cm])$ 
 i.e. (\emph{Lower bound short range readings}, \emph{Upper bound long range readings}).
 By subtracting the normalized value to 1, one is able to obtain a vector whose 
 magnitude is increases linearly as the distance from the obstacle decrease.
 
+\begin{equation}
+\mathbf{ds_i} = (1 - \frac{150 - r_{ds_{i}}}{150-4},\theta_i)  
+\end{equation}
+where $r_{prox_i}$ corresponds to the value of the $i^{th}$ reading of the distance and $\theta_i$ is the corresponding angle.
+
+Again, the resulting force $\mathbf{F_{ds}}$ is obtained by summing and rescaling the readings' vectors: 
 \begin{align}
-\mathbf{F_{ds}} = (1.0,\theta_{sds}) & & \mathbf{sds} = \sum_i -\mathbf{ds_i} 
+\mathbf{sds} = \sum_i -\mathbf{ds_i} & & \mathbf{F_{ds}} = (1.0,\theta_{sds})   
 \end{align}
 where $\theta_{sds}$ corresponds to the angle of $\mathbf{sds}$ vector.
 
@@ -78,32 +84,24 @@ The general idea of the method is that the robots should first quit the initial 
 
 In order to reduce the interference phenomenon at the exit of the nest, a sequential deployment mechanism based on the robot id has been developed.
 
-After exiting the nest, the agents should explore the environment, either individually (as \emph{explorers}) or using the collectivly-gathered knowledge of the environment (i.e. the chain).
+After exiting the nest, the agents should explore the environment, either individually (as \emph{explorers}) or using the collectively-gathered knowledge of the environment (i.e. the chain).
 
 If no information is available, the robot could decide (stochastically) to become a starting point for a new chain in the environment.
 
 Otherwise, the exploration of the environment should, in principle, profit of the already available knowledge.
 
-Nevertheless, this method achieves the required chain formation behavior using the embodied information in the chain only to exist the nest, while the successive exploration is simply guided by proximity sensors and the distance scanner.
+Nevertheless, this method achieves the required chain formation behavior using the embodied information in the chain only to exist the nest, while the successive exploration is simply guided by the proximity sensors and the distance scanner.
  
 
 \paragraph{Rules}\label{par:rules}
 The actual chain formation behavior is driven by five simple rules:
 \begin{enumerate}
-  \item If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain beacon have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a chain end.
-  \item If the \textbf{nest} has been \textbf{left}, and \textbf{exactly one} chain beacon has been \textbf{sensed} at a distance greater than $d_{chain}$, stop and become a chain end.
-  \item If a \textbf{chain end} has \textbf{more than one} neighboring\textbf{ beacon}, but \textbf{less than three}, then it changes its state to \emph{Chain member}.
-  \item If a \textbf{chain member} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{Chain junction}.
+  \item If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain beacon have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a \emph{chain end (E)}.
+  \item If the \textbf{nest} has been \textbf{left}, and \textbf{exactly one} chain beacon has been \textbf{sensed} at a distance greater than $d_{chain}$, stop and become a \emph{chain end (E)}.
+  \item If a \textbf{chain end (E)} has \textbf{more than one} neighboring\textbf{ beacon}, but \textbf{less than three}, then it changes its state to \emph{chain member (M)}.
+  \item If a \textbf{chain member (M)} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{chain junction (J)}.
   \item The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.
 \end{enumerate}
-
-\paragraph{Chain structure}
-The chain will then be composed by three different kind of robots:
-\begin{itemize}
-  \item \textbf{(E) - Chain end:} Any robot connected to at most one other agent.
-  \item \textbf{(M) - Chain member:} Any robot connected to exactly two agents.
-  \item \textbf{(J) - Chain junction:} Any robot connected to more than two agents.
-\end{itemize}
 
 \begin{center}
 \begin{tikzpicture}[shorten >=1pt,node distance=3cm,on grid,auto] 

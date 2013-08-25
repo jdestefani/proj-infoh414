@@ -42,7 +42,7 @@ extractColumn <- function(inputFile,index,maxDuration){
 
 plotRobotInChain <- function(inChainPlot){
   #Plot max error 
-  pdf("RobotInChain.pdf")
+  pdf("RobotInChain.pdf",family="Gentium")
   xRange <- range(0,dim(inChainPlot)[1])
   yRange <- range(0,50)
   nPlots <- dim(inChainPlot)[2]
@@ -50,7 +50,8 @@ plotRobotInChain <- function(inChainPlot){
   lineType <- c(1,2,4,2,1,5) 
   plotChar <- seq(18,18+nPlots,1)
   
-  plot(xRange,yRange, type="n", xlab="Simulation steps", ylab="Robots in chain",main=paste("Time evolution of number of robots in chain across",length(resultsFiles),"trials"))   
+  
+  plot(xRange,yRange, type="n", xlab="Simulation steps", ylab="Robots in chain",mar=c(7,4,1.5,2)+0.1)   
   
   #Add lines
   matlines(inChainPlot, type="l" , lwd=1.5, lty=lineType, col=plotColors, pch=plotChar)
@@ -67,7 +68,7 @@ plotRobotInChain <- function(inChainPlot){
 
 plotRobotOnTarget <- function(onSpotPlot){
   #Plot max error 
-  pdf("RobotOnTarget.pdf")
+  pdf("RobotOnTarget.pdf",family="Gentium")
   xRange <- range(0,dim(onSpotPlot)[1])
   yRange <- range(0,7)
   nPlots <- dim(onSpotPlot)[2]
@@ -75,7 +76,7 @@ plotRobotOnTarget <- function(onSpotPlot){
   lineType <- c(1,2,4,2,1,5) 
   plotChar <- seq(18,18+nPlots,1)
   
-  plot(xRange,yRange, type="n", xlab="Simulation steps", ylab="Robots on spot",main=paste("Time evolution of number of robots on target across",length(resultsFiles),"trials"))   
+  plot(xRange,yRange, type="n", xlab="Simulation steps", ylab="Robots on spot",mar=c(7,4,1.5,2)+0.1)   
 
   #Add lines
   matlines(onSpotPlot, type="l" , lwd=1.5, lty=lineType, col=plotColors, pch=plotChar)
@@ -95,7 +96,7 @@ plotRobotOnTarget <- function(onSpotPlot){
 #  return t(apply(matrix,1,quantile))
 #}
 #############################################################################
-
+library(extrafont)
 
 #Set the directory containing the experiment results as current working directory
 setwd("Results/50Trials")
@@ -159,10 +160,10 @@ write.table(report,"Results.stat",sep="\t",row.names=TRUE,col.names=TRUE)
 
 # Add boxplots to a scatterplot
 # Scatterplot
-pdf("ResultsDistribution.pdf")
-par(fig=c(0,0.8,0,0.8), new=TRUE)
+pdf("ResultsDistribution.pdf", family="Gentium")
+par(fig=c(0,0.8,0,0.8), new=TRUE, bty="l")
 plot(x=metrics["Robots in Chain",],y=metrics["Completion Time",],col=rgb(0,100,0,80,maxColorValue=255), pch=19 , xlab="Robots in Chain",
-     ylab="Completion Time",cex=0.8)
+     ylab="Completion Time",cex=0.8,cex.lab=1.2)
 # Fit lines
 abline(lm(metrics["Completion Time",]~metrics["Robots in Chain",]), col="red") # regression line (y~x) 
 #lines(lowess(metrics["Robots in Chain",],metrics["Completion Time",]), col="blue") # lowess line (x,y)
@@ -174,17 +175,35 @@ boxplot(metrics["Robots in Chain",], horizontal=TRUE, axes=FALSE)
 par(fig=c(0.65,1,0,0.8), new=TRUE)
 boxplot(metrics["Completion Time",], axes=FALSE)
 # Title
-mtext(expression(bold("Scatterplot of robots in chain vs completion time")), side=3, outer=TRUE, line=-3,cex=1.0)
+#mtext(expression(bold("Scatterplot of robots in chain vs completion time")), side=3, outer=TRUE, line=-3,cex=1.0)
 dev.off()
 
 #Plot empirical CDF of completion times
-pdf("Distributions.pdf")
+pdf("Distributions.pdf",family="Gentium")
 par(mfrow=c(2,2))
 hist(metrics["Completion Time",],col="blue",xlab="Simulation steps", main=paste("Histogram of completion times\nacross",length(resultsFiles),"trials"))
 plot(ecdf(metrics["Completion Time",]),col="blue",xlab="Simulation steps",main=paste("Empirical cdf of completion times\nacross",length(resultsFiles),"trials"))
 hist(metrics["Robots in Chain",],col="orange",xlab="Robots",main=paste("Histogram of number of robots in chain\nacross",length(resultsFiles),"trials"))
 plot(ecdf(metrics["Robots in Chain",]),col="orange",xlab="Robots",main=paste("Empirical cdf number of robots in chain\nacross",length(resultsFiles),"trials"))
 dev.off()
+
+pdf("Panel1.pdf",family="Gentium")
+hist(metrics["Completion Time",],col="blue",xlab="Simulation steps", mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+dev.off()
+
+pdf("Panel2.pdf",family="Gentium")
+plot(ecdf(metrics["Completion Time",]),col="blue",xlab="Simulation steps",mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+dev.off()
+
+pdf("Panel3.pdf",family="Gentium")
+hist(metrics["Robots in Chain",],col="orange",xlab="Robots",mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+dev.off()
+
+pdf("Panel4.pdf",family="Gentium")
+plot(ecdf(metrics["Robots in Chain",]),col="orange",xlab="Robots",mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+dev.off()
+
+
 
 #plotRobotInChain(inChainPlot)
 #plotRobotOnTarget(onTargetPlot)

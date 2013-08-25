@@ -40,9 +40,8 @@ chain (since the robots would be closer to each other).
 \item The process of exiting the nest would be slower (since less neighboring robots will be sensed).
 \end{itemize}
 Note that modification will affect the value of the chain distance parameter, for which the following inequality $d_{chain} < r_{rab}$ must hold. 
-On the other hand, since the chain following behavior consists of a random walk, 
-I believe that the reduction of the communication range would not affect this 
-component of the behavior.
+
+On the other hand, since the chain following behavior consists solely of a random walk, the reduction of the communication range would not affect this component of the behavior.
 
 Unfortunately, an extensive study on the effect of the communication range, and thus the scalability of the method hasn't been performed within this project.
 
@@ -102,7 +101,7 @@ First of all, the random walk performed by the agents, even though slightly guid
 
 By testing different values of the magnitude of the distance scanner force $\mathbf{F_{obs}}$ I noticed that there is a trade-off between the quality of the robot placement and the ability to reach the landmark.
 
-In fact, higher values allow the robots to stop closer to the center of the corridors, but preventing them at the same time to go through the narrow passages that leads to the landmarks.
+In fact, higher values allow the robots to stop closer to the center of the corridors, but at the same time, prevent them to go through the narrow passages that lead to the landmarks.
 
 For this reason, the design choice was to focus on the reachability of the target positions, at the expense of a loss of positioning quality.
 
@@ -110,7 +109,7 @@ Furthermore, even though the landmarks could be reached, the spots can only be s
  
 Sometimes, it may happen that a robot ignores the presence of the spot, even while being next to it, and tries to extend the chain in another direction, with respect to the target, thus increasing the number of robots in the chain.
 
-Last but not least, the structure of the environment may yield to bifurcations of the chain, that yield in the end to the same target (that cannot be detected by the implemented algorithm), thus creating redundant branches that increase the number of required agents in the chain without actually bringing any benefits.
+Last but not least, the structure of the environment may yield to bifurcations of the chain, that join back together at the same target (that cannot be detected by the implemented algorithm), thus creating redundant branches that increase the number of required agents in the chain without actually bringing any benefits.
 
 On the other hand, although approximately the 75\% of the trials are completed within 30000 simulation steps, there is a great variability in the time required to successfully complete the task, as shown by the variation coefficient (CV).
 
@@ -158,5 +157,5 @@ Intuitively, one may assume that the completion time is positively correlated wi
 
 This intuition is confirmed by the graphical representation of the completion time as a function of the number of robots in the chain, along with the representation of a linear model fitting the points obtained through the experiment as well as by the values of the correlation coefficients, and their statistical significance (attested by a p-value considerably small than the confidence level $1-\alpha=0.05$.
 
-\bibliographystyle{plain}
+\bibliographystyle{plainnat}
 \bibliography{References}
