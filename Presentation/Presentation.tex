@@ -9,11 +9,14 @@
           watermarkheightmult=6,% The watermark image is 4 times bigger
                                 % than watermarkheight.
           ]{Torino}
+
 \usepackage{epstopdf}
-\usepackage{natbib}
 \usepackage{spverbatim}
 \usepackage{caption}
+\usepackage{pgfpages}
+\usepackage{hyperref}
 \usepackage{tikz}
+
 \usetikzlibrary{positioning,shadows,arrows,intersections,calc,automata}
 
 % Nouvelle is a green and red alternative to the chameleon color theme.
@@ -55,6 +58,7 @@
       {\scriptsize\textit{#5 Tier}};
   \end{pgfonlayer}}
 
+%\setbeameroption{show notes on second screen}
 
 
 \author{Jacopo De Stefani}
@@ -71,6 +75,11 @@
 \include{BodyPresentation}
 %\frame{Test}
 
+\begin{frame}[allowframebreaks]
+         \frametitle{References}
+         \bibliographystyle{alpha}
+         \bibliography{References}
+\end{frame}
 
 
 

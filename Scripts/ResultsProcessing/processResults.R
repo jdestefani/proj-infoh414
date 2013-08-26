@@ -163,7 +163,7 @@ write.table(report,"Results.stat",sep="\t",row.names=TRUE,col.names=TRUE)
 pdf("ResultsDistribution.pdf", family="Gentium")
 par(fig=c(0,0.8,0,0.8), new=TRUE, bty="l")
 plot(x=metrics["Robots in Chain",],y=metrics["Completion Time",],col=rgb(0,100,0,80,maxColorValue=255), pch=19 , xlab="Robots in Chain",
-     ylab="Completion Time",cex=0.8,cex.lab=1.2)
+     ylab="Completion Time",cex=0.8,cex.lab=1.5)
 # Fit lines
 abline(lm(metrics["Completion Time",]~metrics["Robots in Chain",]), col="red") # regression line (y~x) 
 #lines(lowess(metrics["Robots in Chain",],metrics["Completion Time",]), col="blue") # lowess line (x,y)
@@ -188,19 +188,19 @@ plot(ecdf(metrics["Robots in Chain",]),col="orange",xlab="Robots",main=paste("Em
 dev.off()
 
 pdf("Panel1.pdf",family="Gentium")
-hist(metrics["Completion Time",],col="blue",xlab="Simulation steps", mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+hist(metrics["Completion Time",],col="blue",xlab="Simulation steps", mar=c(7,4,1.5,2)+0.1, cex.lab=1.5, main="")
 dev.off()
 
 pdf("Panel2.pdf",family="Gentium")
-plot(ecdf(metrics["Completion Time",]),col="blue",xlab="Simulation steps",mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+plot(ecdf(metrics["Completion Time",]),col="blue",xlab="Simulation steps",mar=c(7,4,1.5,2)+0.1, cex.lab=1.5, main="")
 dev.off()
 
 pdf("Panel3.pdf",family="Gentium")
-hist(metrics["Robots in Chain",],col="orange",xlab="Robots",mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+hist(metrics["Robots in Chain",],col="orange",xlab="Robots",mar=c(7,4,1.5,2)+0.1, cex.lab=1.5, main="")
 dev.off()
 
 pdf("Panel4.pdf",family="Gentium")
-plot(ecdf(metrics["Robots in Chain",]),col="orange",xlab="Robots",mar=c(7,4,1.5,2)+0.1, cex.lab=1.2, main="")
+plot(ecdf(metrics["Robots in Chain",]),col="orange",xlab="Robots",mar=c(7,4,1.5,2)+0.1, cex.lab=1.5, main="")
 dev.off()
 
 

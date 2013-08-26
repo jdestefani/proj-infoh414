@@ -7,24 +7,85 @@
 
 \section{Introduction}
 \begin{frame}[t,fragile]{\textbf{Introduction}}
-Test
+\vfill
+\begin{minipage}{.45\textwidth}
+\centering
+\includegraphics[height=\textwidth,keepaspectratio]{Figures/Init.jpg}
+\end{minipage}%
+\pause
+\begin{minipage}{.05\textwidth}
+{\Huge $\Rightarrow$ }
+\end{minipage}
+\hspace{0.05cm}
+\pause
+\begin{minipage}{.45\textwidth}
+\centering
+\includegraphics[height=\textwidth,keepaspectratio]{Figures/ChainExample.jpg}
+\end{minipage}
+
+\note{
+Describe the purpose of the project:
+
+
+You must implement a chaining strategy. The environment loosely mimicks an indoor structure, in which five target locations are marked with black dots.
+The task of the robots, initially placed in an area that we will call the nest, is to form five chains that connect the nest with the target locations.
+
+
+Show final results.
+}
+
 \end{frame}
 
-\section{Controller overview}
-\begin{frame}[t,fragile]{Rules}
-\begin{enumerate}
-  \item If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain beacon have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a \emph{chain end (E)}.
-  \item If the \textbf{nest} has been \textbf{left}, and \textbf{exactly one} chain beacon has been \textbf{sensed} at a distance greater than $d_{chain}$, stop and become a \emph{chain end (E)}.
-  \item If a \textbf{chain end (E)} has \textbf{more than one} neighboring\textbf{ beacon}, but \textbf{less than three}, then it changes its state to \emph{chain member (M)}.
-  \item If a \textbf{chain member (M)} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{chain junction (J)}.
-  \item The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.
-\end{enumerate}
+\section{Controller}
+
+\begin{frame}[t,fragile]{\textbf{What does the method use?}}
+\begin{columns}
+\column{.5\textwidth}
+\textbf{Sensors}
+\column{.5\textwidth}
+\textbf{Actuators}
+\end{columns}
+\vskip15pt
+\begin{columns}
+\column{.5\textwidth}
+\begin{small}
+\begin{itemize}
+  \item Proximity sensors
+  \item Distance scanner
+  \item Range and Bearing
+  \item Ground sensors
+\end{itemize}
+\end{small}
+\column{.5\textwidth}
+\begin{small}
+\begin{itemize}
+  \item Wheels
+  \item Range and Bearing
+\end{itemize}
+\end{small}
+\end{columns}
+\vfill
+\begin{itemize}
+  \item \emph{Sense}, \emph{Think}, \emph{Act} paradigm
+  \item Potential-fields approach \cite{howard2002mobile}
+\end{itemize}
+
+\note{How is it possible to achieve these results?
+
+Using the robot equipment (sensors and actuators) and combining them with:
+\begin{itemize}
+  \item \emph{Sense}, \emph{Think}, \emph{Act} paradigm $\Rightarrow$ Read sensors, compute values for actuators, Actuate.
+  \item Potential-fields approach $\Rightarrow$ Readings from different sensors are transformed into vectors and combined using a virtual physics approach.
+\end{itemize}
+}
 
 \end{frame}
+
 
 \begin{frame}[t,fragile]{\textbf{Chain example}}
+\vfill
 \begin{center}
-\begin{tikzpicture}[shorten >=1pt,node distance=2cm,on grid,auto] 
+\begin{tikzpicture}[shorten >=1pt,node distance=2.5cm,on grid,auto] 
    \node[state,accepting] (R1)   {$E_0$}; 
    \node[state,thick] (R2) [right=of R1] {$M_1$};
    \node[state,thick] (R3) [right=of R2] {$J_2$};
@@ -40,10 +101,39 @@ Test
 \end{tikzpicture}
 \captionof{figure}{Chain example with nodes labeling and id}
 \end{center}
+\note{Describe the structure of the chain and the purpose of the different elements:
+\begin{itemize}
+  \item \emph{Chain End} state is reached when a robot connects himself to the current end of the chain, becoming
+thus the new termination.
+In this state, the robot stands still and broadcast information concerning its state, id and chain id to the
+neighboring robots.
+\item \emph{Chain Member} if more than one \emph{Beacon} but less than two are connected to a \emph{Chain End}.
+\item \emph{Chain Junction} if more than two \emph{Beacon} are connected to a \emph{Chain Junction}.
+\end{itemize}
+}
 \end{frame}
 
-\section{Controller details}
-\begin{frame}[t,fragile]{\textbf{State machine}}
+\begin{frame}[t,fragile]{\textbf{Rules}}
+\begin{Large}
+\begin{enumerate}
+  \item Chain beginning rule
+  \item Chain attaching rule
+  \item \emph{Chain end} to \emph{Chain member} transition
+  \item \emph{Chain member} to \emph{Chain junction} transition
+  \item Chain identifier computation
+\end{enumerate}
+\end{Large}
+\note{
+\begin{enumerate}
+  \item If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain beacon have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a \emph{chain end (E)}.
+  \item If the \textbf{nest} has been \textbf{left}, and \textbf{exactly one} chain beacon has been \textbf{sensed} at a distance greater than $d_{c}$, stop and become a \emph{chain end (E)}.
+  \item If a \textbf{chain end (E)} has \textbf{more than one} neighboring\textbf{ beacon}, but \textbf{less than three}, then it changes its state to \emph{chain member (M)}.
+  \item If a \textbf{chain member (M)} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{chain junction (J)}.
+  \item The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.
+\end{enumerate}}
+\end{frame}
+
+\begin{frame}[t,fragile]{\textbf{Probabilistic FSM}}
 \begin{tiny}
 %\begin{center}
 \begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
@@ -54,14 +144,14 @@ Test
    \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
    \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
    \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
-   \node [draw,rectangle,text width=4cm] (box) at (0,-26) {%
+   \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
     $n_b$ : Number of beacons
      
     $d_{cb}$ : Distance to closest beacon
      
-    $P_{etob}$ : Probability to become beacon
+    $P_{etob}$ : Probability to become beacon (0.05)
      
-    $d_c$ : Chain distance
+    $d_c$ : Minimum chain distance (130 cm)
     };
     \path[->] 
     (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
@@ -69,7 +159,7 @@ Test
     (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
          edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
           edge  node [above left,rotate=90]  {In Nest} (EN)
-    (CE) edge node  {$n_b > 1$} (CM)
+    (CE) edge node [draw,rectangle,rounded corners]  {$n_b > 1$} (CM)
            edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
     (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
     (EC) edge  node [above]  {In Nest} (EN)
@@ -80,37 +170,195 @@ Test
 %\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
 %\end{center}
 \end{tiny}
+
+\note{\begin{scriptsize}
+The general idea of the method is that the robots should first quit the initial deployment room, characterized
+by four surrounding walls, one of them containing an opening to let the robots move outside, and a dark
+grey floor, to then start the exploration phase required to find the target spots.
+In order to reduce the interference phenomenon at the exit of the nest, a sequential deployment mechanism
+based on the robot id has been developed.
+After exiting the nest, the agents should explore the environment, either individually (as explorers) or using
+the collectively-gathered knowledge of the environment (i.e. the chain).
+If no information is available, the robot could decide (stochastically) to become a starting point for a new
+chain in the environment.
+Otherwise, the exploration of the environment should, in principle, profit of the already available knowledge.
+Nevertheless, this method achieves the required chain formation behavior using the embodied information in
+the chain only to exist the nest, while the successive exploration is simply guided by the proximity sensors
+and the distance scanner.
+\end{scriptsize}
+}
 \end{frame}
 
 \section{Results}
 \begin{frame}[t,fragile]{\textbf{Robots in chain}}
+
 \begin{minipage}{.47\textwidth}
 \centering
-\includegraphics[width=\textwidth,keepaspectratio]{{../Results/50Trials/Panel1}.pdf}
+\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel1}.pdf}
+
+{\scriptsize (a)}
 \end{minipage}%
 \hspace{0.15cm}
 \begin{minipage}{.47\textwidth}
 \centering
-\includegraphics[width=\textwidth,keepaspectratio]{{../Results/50Trials/Panel2}.pdf}
+\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel2}.pdf}
+
+{\scriptsize (b)}
 \end{minipage}
+\vfill
+\captionof{figure}{Observed distribution of the number of robots in chain over 50 trials displayed as histogram (a) and empirical cumulative density function (b)}
+
+\note{
+\begin{scriptsize}
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+& \multicolumn{1}{p{2cm}|}{\textbf{Robots in Chain}} & \multicolumn{1}{p{2cm}|}{\textbf{Completion Time}} \\
+\hline
+\textbf{Mean} &	36.82 & 21779.52 \\
+\hline
+\textbf{Std Dev} & 2.5689671 & 11138.0954867 \\
+\hline
+ \textbf{CV} = $\frac{\sigma}{\mu}$ & 0.06952743 &	0.51140223 \\
+\hline
+ \textbf{Median} & 37 &	21209.5 \\
+\hline
+\textbf{Min} & 30 & 6133 \\
+\hline
+\textbf{Max} & 41 & 47097 \\
+\hline
+\end{tabular}
+\end{center}
+\end{scriptsize}
+
+\begin{footnotesize}
+High variability in the number of robots:
+\begin{itemize}
+  \item Random walk
+  \item Distance scanner force tailored for target reachability instead of optimal placement
+  \item Landmarks sensed only while being on top of them
+  \item Bifurcations of the chain
+\end{itemize}
+
+\end{footnotesize}
+}
+
 \end{frame}
 
 
 \begin{frame}[t,fragile]{\textbf{Completion time}}
 \begin{minipage}{.47\textwidth}
 \centering
-\includegraphics[width=\textwidth,keepaspectratio]{{../Results/50Trials/Panel3}.pdf}
+\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel3}.pdf}
+
+{\scriptsize (a)}
 \end{minipage}%
 \hspace{0.15cm}
 \begin{minipage}{.47\textwidth}
 \centering
-\includegraphics[width=\textwidth,keepaspectratio]{{../Results/50Trials/Panel4}.pdf}
+\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel4}.pdf}
+
+{\scriptsize (b)}
 \end{minipage}
+\vfill
+\captionof{figure}{Observed distribution of the experiments' completion times over 50 trials displayed as histogram (a) and empirical cumulative density function (b)}
+\note{
+\begin{scriptsize}
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+& \multicolumn{1}{p{2cm}|}{\textbf{Robots in Chain}} & \multicolumn{1}{p{2cm}|}{\textbf{Completion Time}} \\
+\hline
+\textbf{Mean} &	36.82 & 21779.52 \\
+\hline
+\textbf{Std Dev} & 2.5689671 & 11138.0954867 \\
+\hline
+ \textbf{CV} = $\frac{\sigma}{\mu}$ & 0.06952743 &	0.51140223 \\
+\hline
+ \textbf{Median} & 37 &	21209.5 \\
+\hline
+\textbf{Min} & 30 & 6133 \\
+\hline
+\textbf{Max} & 41 & 47097 \\
+\hline
+\end{tabular}
+\end{center}
+\end{scriptsize}
+
+\begin{footnotesize}
+\begin{itemize}
+  \item 75\% of the trials completed within 30000 timesteps but high CV.
+  \item Influence of random seed on robots' initial position and orientation and stochastic decision to stop of the first robot.
+\end{itemize}
+
+\end{footnotesize}
+
+}
 \end{frame}
 
 \begin{frame}[t,fragile]{\textbf{Correlation}}
 \begin{center}
-\includegraphics[width=0.7\textwidth,keepaspectratio]{{../Results/50Trials/ResultsDistribution}.pdf}  
+\includegraphics[width=.7\textheight,keepaspectratio]{{../Results/50Trials/ResultsDistributionCropped}.pdf}  
+\captionof{figure}{Scatterplot of the experiments' completion times versus the number of robots in chain on 50 trials. $r=0.7934599$}
+\end{center}
+\note{
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+& \textbf{Value} & \textbf{P-Value} \\
+\hline
+\textbf{Pearson - } $\mathbf{r}$  &	0.7934599 & 6.357e-12 \\
+\hline
+\textbf{Kendall -} $\mathbf{\tau}$ & 0.6691023 & 5.554e-11 \\
+\hline
+\end{tabular}  
+\end{center}
+
+Positive and significant correlation between completion times and number of robots in chain.
+}
+\end{frame}
+
+\section{Conclusions}
+
+\begin{frame}[t,fragile]{\textbf{Conclusions}}
+\begin{large}
+\begin{itemize}
+  \vskip10pt
+  \item Simple method:
+  \begin{itemize}
+    \item Random walk
+    \item Limited communication
+  \end{itemize}
+  \vskip10pt
+  \item Here, simplicity entails:
+  \begin{itemize}
+    \item Lack of placement optimality
+    \item High results variability
+  \end{itemize}
+  \vskip10pt
+  \item The width of the communication range impacts on:
+  \begin{itemize}
+    \item Completion time
+    \item Number of robots in chain
+  \end{itemize}
+  \vskip10pt
+  \item Relevant impact of the structure of the environment on the method's performance.
+\end{itemize}
+\end{large}
+
+\note{
+Communication is only used to:
+  \begin{itemize}
+    \item Speed up the exit from the nest
+    \item Determine the distance from the closest beacon
+  \end{itemize}
+}
+\end{frame}
+ 
+
+\begin{frame}[t,fragile]{\textbf{Questions ?}}
+\begin{center}
+\includegraphics[height=.8\textheight,keepaspectratio]{UlbLogos/Questions.jpg}
 \end{center}
 \end{frame}
 
