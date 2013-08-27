@@ -64,11 +64,14 @@ Show final results.
 \end{itemize}
 \end{small}
 \end{columns}
-\vfill
+\vskip25pt
+\begin{Large}
 \begin{itemize}
-  \item \emph{Sense}, \emph{Think}, \emph{Act} paradigm
-  \item Potential-fields approach \cite{howard2002mobile}
+  \item<2-> \emph{Sense}, \emph{Think}, \emph{Act} paradigm
+  \vskip15pt
+  \item<3-> Potential-fields approach \cite{howard2002mobile}
 \end{itemize}
+\end{Large}
 
 \note{How is it possible to achieve these results?
 
@@ -86,12 +89,15 @@ Using the robot equipment (sensors and actuators) and combining them with:
 \vfill
 \begin{center}
 \begin{tikzpicture}[shorten >=1pt,node distance=2.5cm,on grid,auto] 
-   \node[state,accepting] (R1)   {$E_0$}; 
+   \node[state,accepting,thick] (R1)   {$E_0$}; 
    \node[state,thick] (R2) [right=of R1] {$M_1$};
    \node[state,thick] (R3) [right=of R2] {$J_2$};
    \node[state,accepting,thick] (R4) [above right=of R3] {$E_3$};
    \node[state,thick] (R5) [below right=of R3] {$M_3$};
    \node[state,accepting,thick] (R6) [right=of R5] {$E_4$};
+   \only<2>{\node [draw,rectangle,text width=5.5cm] (box) at (2.5,2) {%
+    {\scriptsize The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.}
+    };}
     \path[]
     (R1) edge (R2)
     (R2) edge (R3)
@@ -117,21 +123,190 @@ neighboring robots.
 \begin{Large}
 \begin{enumerate}
   \item Chain beginning rule
-  \item Chain attaching rule
+  \vskip7pt
+  \item Chain building rule
+  \vskip7pt
   \item \emph{Chain end} to \emph{Chain member} transition
+  \vskip7pt
   \item \emph{Chain member} to \emph{Chain junction} transition
-  \item Chain identifier computation
+  \vskip7pt
 \end{enumerate}
 \end{Large}
 \note{
 \begin{enumerate}
-  \item If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain beacon have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a \emph{chain end (E)}.
-  \item If the \textbf{nest} has been \textbf{left}, and \textbf{exactly one} chain beacon has been \textbf{sensed} at a distance greater than $d_{c}$, stop and become a \emph{chain end (E)}.
-  \item If a \textbf{chain end (E)} has \textbf{more than one} neighboring\textbf{ beacon}, but \textbf{less than three}, then it changes its state to \emph{chain member (M)}.
-  \item If a \textbf{chain member (M)} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{chain junction (J)}.
-  \item The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.
+  \item 
 \end{enumerate}}
 \end{frame}
+
+\begin{frame}[t,fragile]{\textbf{Chain beginning rule}}
+\begin{tiny}
+%\begin{center}
+\begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
+   \node[state,initial] (EN)   {Exit Nest}; 
+   \node[state,thick] (EX) [below=of EN] {Explorer};
+   \node[state,thick] (EC) [right=of EN] {Chain Following};
+   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
+   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
+   \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
+   \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
+   \node [draw,rectangle,text width=4.5cm] (box) at (24,-26) {%
+    $n_b$ : Number of beacons
+     
+    $d_{cb}$ : Distance to closest beacon
+     
+    $P_{etob}$ : Probability to become beacon (0.05)
+     
+    $d_c$ : Minimum chain distance (130 cm)
+    };
+    \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
+    If the \textbf{nest} has been \textbf{left}, and \textbf{no} chain beacon have been already \textbf{sensed}, after $t_{ns}$ time step, decide with probability $p_{btoe}$ to stop and become a \emph{chain end (E)}.
+    };
+    \path[->] 
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
+         edge [bend left]  node [above]  {$n_b >0$} (EC)
+    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
+         edge [bend right]  node [red,below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
+          edge  node [above left,rotate=90]  {In Nest} (EN)
+    (CE) edge node {$n_b > 1$} (CM)
+           edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
+    (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
+    (EC) edge  node [above]  {In Nest} (EN)
+           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+           edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
+           edge  node {On spot} (SR);
+\end{tikzpicture}
+%\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
+%\end{center}
+\end{tiny}
+\end{frame}
+
+\begin{frame}[t,fragile]{\textbf{Chain building rule}}
+\begin{tiny}
+%\begin{center}
+\begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
+   \node[state,initial] (EN)   {Exit Nest}; 
+   \node[state,thick] (EX) [below=of EN] {Explorer};
+   \node[state,thick] (EC) [right=of EN] {Chain Following};
+   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
+   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
+   \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
+   \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
+   \node [draw,rectangle,text width=4.5cm] (box) at (24,-26) {%
+    $n_b$ : Number of beacons
+     
+    $d_{cb}$ : Distance to closest beacon
+     
+    $P_{etob}$ : Probability to become beacon (0.05)
+     
+    $d_c$ : Minimum chain distance (130 cm)
+    };
+    \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
+    If the \textbf{nest} has been \textbf{left}, and \textbf{exactly one} chain beacon has been \textbf{sensed} at a distance greater than $d_{c}$, stop and become a \emph{chain end (E)}.
+    };
+    \path[->] 
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
+         edge [bend left]  node [above]  {$n_b >0$} (EC)
+    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
+         edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
+          edge  node [above left,rotate=90]  {In Nest} (EN)
+    (CE) edge node {$n_b > 1$} (CM)
+           edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
+    (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
+    (EC) edge  node [above]  {In Nest} (EN)
+           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+           edge [bend left] node [red,right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
+           edge  node {On spot} (SR);
+\end{tikzpicture}
+%\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
+%\end{center}
+\end{tiny}
+\end{frame}
+
+
+\begin{frame}[t,fragile]{\textbf{End to Member}}
+\begin{tiny}
+%\begin{center}
+\begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
+   \node[state,initial] (EN)   {Exit Nest}; 
+   \node[state,thick] (EX) [below=of EN] {Explorer};
+   \node[state,thick] (EC) [right=of EN] {Chain Following};
+   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
+   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
+   \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
+   \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
+   \node [draw,rectangle,text width=4.5cm] (box) at (24,-26) {%
+    $n_b$ : Number of beacons
+     
+    $d_{cb}$ : Distance to closest beacon
+     
+    $P_{etob}$ : Probability to become beacon (0.05)
+     
+    $d_c$ : Minimum chain distance (130 cm)
+    };
+    \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
+    If a \textbf{chain end (E)} has \textbf{more than one} neighboring\textbf{ beacon}, but \textbf{less than three}, then it changes its state to \emph{chain member (M)}.
+    };
+    \path[->] 
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
+         edge [bend left]  node [above]  {$n_b >0$} (EC)
+    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
+         edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
+          edge  node [above left,rotate=90]  {In Nest} (EN)
+    (CE) edge node [red] {$n_b > 1$} (CM)
+           edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
+    (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
+    (EC) edge  node [above]  {In Nest} (EN)
+           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+           edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
+           edge  node {On spot} (SR);
+\end{tikzpicture}
+%\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
+%\end{center}
+\end{tiny}
+\end{frame}
+
+\begin{frame}[t,fragile]{\textbf{Member to Junction}}
+\begin{tiny}
+%\begin{center}
+\begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
+   \node[state,initial] (EN)   {Exit Nest}; 
+   \node[state,thick] (EX) [below=of EN] {Explorer};
+   \node[state,thick] (EC) [right=of EN] {Chain Following};
+   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
+   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
+   \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
+   \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
+   \node [draw,rectangle,text width=4.5cm] (box) at (24,-26) {%
+    $n_b$ : Number of beacons
+     
+    $d_{cb}$ : Distance to closest beacon
+     
+    $P_{etob}$ : Probability to become beacon (0.05)
+     
+    $d_c$ : Minimum chain distance (130 cm)
+    };
+    \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
+    If a \textbf{chain member (M)} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{chain junction (J)}.
+    };
+    \path[->] 
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
+         edge [bend left]  node [above]  {$n_b >0$} (EC)
+    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
+         edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
+          edge  node [above left,rotate=90]  {In Nest} (EN)
+    (CE) edge node {$n_b > 1$} (CM)
+           edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
+    (CM) edge [bend left] node [red,text width=2cm] {$n_b > 2$} (CJ)
+    (EC) edge  node [above]  {In Nest} (EN)
+           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+           edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
+           edge  node {On spot} (SR);
+\end{tikzpicture}
+%\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
+%\end{center}
+\end{tiny}
+\end{frame}
+
 
 \begin{frame}[t,fragile]{\textbf{Probabilistic FSM}}
 \begin{tiny}
@@ -159,7 +334,7 @@ neighboring robots.
     (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
          edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
           edge  node [above left,rotate=90]  {In Nest} (EN)
-    (CE) edge node [draw,rectangle,rounded corners]  {$n_b > 1$} (CM)
+    (CE) edge node {$n_b > 1$} (CM)
            edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
     (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
     (EC) edge  node [above]  {In Nest} (EN)
