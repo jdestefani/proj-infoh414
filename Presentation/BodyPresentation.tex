@@ -1,8 +1,8 @@
 % DO NOT COMPILE THIS FILE DIRECTLY!
 % This is included by the other .tex files.
 
-\section*{Outline}
-\frame{\tableofcontents}
+%\section*{Outline}
+%\frame{\tableofcontents}
 
 
 \section{Introduction}
@@ -39,39 +39,37 @@ Show final results.
 \section{Controller}
 
 \begin{frame}[t,fragile]{\textbf{What does the method use?}}
-\begin{columns}
-\column{.5\textwidth}
-\textbf{Sensors}
-\column{.5\textwidth}
-\textbf{Actuators}
-\end{columns}
+\textbf{Robot equipment}
+\begin{itemize}
+  \item<2-> Wheels
+  \item<3-> Proximity sensors
+  \item<4-> Range and Bearing
+  \item<5-> Ground sensors
+  \item<6-> Distance scanner
+\end{itemize}
+%\begin{columns}
+%\column{.5\textwidth}
+%\textbf{Sensors}
+%\column{.5\textwidth}
+%\textbf{Actuators}
+%\end{columns}
+%\vskip15pt
+%\begin{columns}
+%\column{.5\textwidth}
+%\begin{small}
+%\end{small}
+%\column{.5\textwidth}
+%\begin{small}
+%\begin{itemize} 
+%\end{itemize}
+%\end{small}
+%\end{columns}
 \vskip15pt
-\begin{columns}
-\column{.5\textwidth}
-\begin{small}
 \begin{itemize}
-  \item Proximity sensors
-  \item Distance scanner
-  \item Range and Bearing
-  \item Ground sensors
-\end{itemize}
-\end{small}
-\column{.5\textwidth}
-\begin{small}
-\begin{itemize}
-  \item Wheels
-  \item Range and Bearing
-\end{itemize}
-\end{small}
-\end{columns}
-\vskip25pt
-\begin{Large}
-\begin{itemize}
-  \item<2-> \emph{Sense}, \emph{Think}, \emph{Act} paradigm
+  \item<7-> \emph{Sense}, \emph{Think}, \emph{Act} paradigm
   \vskip15pt
-  \item<3-> Potential-fields approach \cite{howard2002mobile}
+  \item<8-> Potential-fields approach \cite{howard2002mobile}
 \end{itemize}
-\end{Large}
 
 \note{How is it possible to achieve these results?
 
@@ -95,9 +93,9 @@ Using the robot equipment (sensors and actuators) and combining them with:
    \node[state,accepting,thick] (R4) [above right=of R3] {$E_3$};
    \node[state,thick] (R5) [below right=of R3] {$M_3$};
    \node[state,accepting,thick] (R6) [right=of R5] {$E_4$};
-   \only<2>{\node [draw,rectangle,text width=5.5cm] (box) at (2.5,2) {%
-    {\scriptsize The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.}
-    };}
+   %\only<2>{\node [draw,rectangle,text width=5.5cm] (box) at (2.5,2) {%
+    %{\scriptsize The chain identifier of a new beacon is determined by incrementing of one unit the chain id of the closest beacon.}
+    %};}
     \path[]
     (R1) edge (R2)
     (R2) edge (R3)
@@ -105,7 +103,8 @@ Using the robot equipment (sensors and actuators) and combining them with:
     (R3) edge (R5)
     (R5) edge (R6);
 \end{tikzpicture}
-\captionof{figure}{Chain example with nodes labeling and id}
+\vskip10pt
+{\footnotesize \emph{Chain example with nodes labeling and id}}
 \end{center}
 \note{Describe the structure of the chain and the purpose of the different elements:
 \begin{itemize}
@@ -119,26 +118,24 @@ neighboring robots.
 }
 \end{frame}
 
-\begin{frame}[t,fragile]{\textbf{Rules}}
+\begin{frame}[t,fragile]{\textbf{Controller components}}
+\vskip10pt
 \begin{Large}
 \begin{enumerate}
-  \item Chain beginning rule
+  \item<2-> Chain beginning
   \vskip7pt
-  \item Chain building rule
+  \item<3-> Chain following
   \vskip7pt
-  \item \emph{Chain end} to \emph{Chain member} transition
+  \item<4-> Chain building
   \vskip7pt
-  \item \emph{Chain member} to \emph{Chain junction} transition
-  \vskip7pt
+  \item<5-> Chain state updating
 \end{enumerate}
 \end{Large}
 \note{
-\begin{enumerate}
-  \item 
-\end{enumerate}}
+Test}
 \end{frame}
 
-\begin{frame}[t,fragile]{\textbf{Chain beginning rule}}
+\begin{frame}[t,fragile]{\textbf{Chain beginning}}
 \begin{tiny}
 %\begin{center}
 \begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
@@ -164,14 +161,73 @@ neighboring robots.
     \path[->] 
     (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
          edge [bend left]  node [above]  {$n_b >0$} (EC)
-    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
+    (EX) edge node [above,rotate=45]  {$n_b >0$} (EC)
          edge [bend right]  node [red,below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
           edge  node [above left,rotate=90]  {In Nest} (EN)
     (CE) edge node {$n_b > 1$} (CM)
            edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
     (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
     (EC) edge  node [above]  {In Nest} (EN)
-           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+           edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
+           edge  node {On spot} (SR);
+\end{tikzpicture}
+%\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
+%\end{center}
+\end{tiny}
+\note{\begin{scriptsize}
+The general idea of the method is that the robots should first quit the initial deployment room, characterized
+by four surrounding walls, one of them containing an opening to let the robots move outside, and a dark
+grey floor, to then start the exploration phase required to find the target spots.
+In order to reduce the interference phenomenon at the exit of the nest, a sequential deployment mechanism
+based on the robot id has been developed.
+After exiting the nest, the agents should explore the environment, either individually (as explorers) or using
+the collectively-gathered knowledge of the environment (i.e. the chain).
+If no information is available, the robot could decide (stochastically) to become a starting point for a new
+chain in the environment.
+Otherwise, the exploration of the environment should, in principle, profit of the already available knowledge.
+Nevertheless, this method achieves the required chain formation behavior using the embodied information in
+the chain only to exist the nest, while the successive exploration is simply guided by the proximity sensors
+and the distance scanner.
+\end{scriptsize}
+}
+
+\end{frame}
+
+
+\begin{frame}[t,fragile]{\textbf{Chain following}}
+\begin{tiny}
+%\begin{center}
+\begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
+   \node[state,initial] (EN)   {Exit Nest}; 
+   \node[state,thick] (EX) [below=of EN] {Explorer};
+   \node[state,thick,red] (EC) [right=of EN] {Chain Following};
+   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
+   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
+   \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
+   \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
+   \node [draw,rectangle,text width=4.5cm] (box) at (24,-26) {%
+    $n_b$ : Number of beacons
+     
+    $d_{cb}$ : Distance to closest beacon
+     
+    $P_{etob}$ : Probability to become beacon (0.05)
+     
+    $d_c$ : Minimum chain distance (130 cm)
+    };
+    \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
+    Informed random walk.
+    The robots normally goes straight and its direction is modified by the perceived obstacles both in a short range (proximity sensors) and in a long range (distance scanner).
+    };
+    \path[->] 
+    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
+         edge [bend left]  node [above]  {$n_b >0$} (EC)
+    (EX) edge node [above,rotate=45]  {$n_b >0$} (EC)
+         edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
+          edge  node [above left,rotate=90]  {In Nest} (EN)
+    (CE) edge node {$n_b > 1$} (CM)
+           edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
+    (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
+    (EC) edge  node [above]  {In Nest} (EN)
            edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
            edge  node {On spot} (SR);
 \end{tikzpicture}
@@ -180,7 +236,7 @@ neighboring robots.
 \end{tiny}
 \end{frame}
 
-\begin{frame}[t,fragile]{\textbf{Chain building rule}}
+\begin{frame}[t,fragile]{\textbf{Chain building}}
 \begin{tiny}
 %\begin{center}
 \begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
@@ -206,14 +262,13 @@ neighboring robots.
     \path[->] 
     (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
          edge [bend left]  node [above]  {$n_b >0$} (EC)
-    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
+    (EX) edge node [above,rotate=45]  {$n_b >0$} (EC)
          edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
           edge  node [above left,rotate=90]  {In Nest} (EN)
     (CE) edge node {$n_b > 1$} (CM)
            edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
     (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
-    (EC) edge  node [above]  {In Nest} (EN)
-           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+    (EC) edge  node [above]  {In Nest} (EN) 
            edge [bend left] node [red,right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
            edge  node {On spot} (SR);
 \end{tikzpicture}
@@ -223,7 +278,7 @@ neighboring robots.
 \end{frame}
 
 
-\begin{frame}[t,fragile]{\textbf{End to Member}}
+\begin{frame}[t,fragile]{\textbf{Chain updating}}
 \begin{tiny}
 %\begin{center}
 \begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
@@ -249,14 +304,13 @@ neighboring robots.
     \path[->] 
     (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
          edge [bend left]  node [above]  {$n_b >0$} (EC)
-    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
+    (EX) edge node [above,rotate=45]  {$n_b >0$} (EC)
          edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
           edge  node [above left,rotate=90]  {In Nest} (EN)
     (CE) edge node [red] {$n_b > 1$} (CM)
            edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
-    (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
-    (EC) edge  node [above]  {In Nest} (EN)
-           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
+    (CM) edge [bend left] node [text width=2cm,red] {$n_b > 2$} (CJ)
+    (EC) edge  node [above]  {In Nest} (EN) 
            edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
            edge  node {On spot} (SR);
 \end{tikzpicture}
@@ -265,107 +319,9 @@ neighboring robots.
 \end{tiny}
 \end{frame}
 
-\begin{frame}[t,fragile]{\textbf{Member to Junction}}
-\begin{tiny}
-%\begin{center}
-\begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
-   \node[state,initial] (EN)   {Exit Nest}; 
-   \node[state,thick] (EX) [below=of EN] {Explorer};
-   \node[state,thick] (EC) [right=of EN] {Chain Following};
-   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
-   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
-   \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
-   \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
-   \node [draw,rectangle,text width=4.5cm] (box) at (24,-26) {%
-    $n_b$ : Number of beacons
-     
-    $d_{cb}$ : Distance to closest beacon
-     
-    $P_{etob}$ : Probability to become beacon (0.05)
-     
-    $d_c$ : Minimum chain distance (130 cm)
-    };
-    \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
-    If a \textbf{chain member (M)} has \textbf{more than two} neighboring \textbf{beacons}, then it changes its state to \emph{chain junction (J)}.
-    };
-    \path[->] 
-    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
-         edge [bend left]  node [above]  {$n_b >0$} (EC)
-    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
-         edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
-          edge  node [above left,rotate=90]  {In Nest} (EN)
-    (CE) edge node {$n_b > 1$} (CM)
-           edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
-    (CM) edge [bend left] node [red,text width=2cm] {$n_b > 2$} (CJ)
-    (EC) edge  node [above]  {In Nest} (EN)
-           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
-           edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
-           edge  node {On spot} (SR);
-\end{tikzpicture}
-%\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
-%\end{center}
-\end{tiny}
-\end{frame}
-
-
-\begin{frame}[t,fragile]{\textbf{Probabilistic FSM}}
-\begin{tiny}
-%\begin{center}
-\begin{tikzpicture}[scale=0.2,shorten >=1pt,node distance=3cm,on grid,auto] 
-   \node[state,initial] (EN)   {Exit Nest}; 
-   \node[state,thick] (EX) [below=of EN] {Explorer};
-   \node[state,thick] (EC) [right=of EN] {Chain Following};
-   \node[state,accepting,thick] (SR) [right=of EC] {Spot Reached};
-   \node[state,accepting,thick] (CE) [below =of EC] {Chain End};
-   \node[state,accepting,thick] (CM) [right=of CE] {Chain Member};
-   \node[state,accepting,thick] (CJ) [below right=of CM] {Chain Junction};
-   \node [draw,rectangle,text width=4.5cm] (box) at (0,-26) {%
-    $n_b$ : Number of beacons
-     
-    $d_{cb}$ : Distance to closest beacon
-     
-    $P_{etob}$ : Probability to become beacon (0.05)
-     
-    $d_c$ : Minimum chain distance (130 cm)
-    };
-    \path[->] 
-    (EN) edge [bend right]  node [left,text width=2cm]  {Out of nest $\wedge \text{ } n_b = 0$} (EX)
-         edge [bend left]  node [above]  {$n_b >0$} (EC)
-    (EX) edge [bend left]  node [above,rotate=45]  {$n_b >0$} (EC)
-         edge [bend right]  node [below,text width=1.3cm]  {$n_b = 0 \text{ } \wedge$ Out of Nest $\wedge \text{ } P_{etob}$} (CE)
-          edge  node [above left,rotate=90]  {In Nest} (EN)
-    (CE) edge node {$n_b > 1$} (CM)
-           edge [bend left] node [below left,text width=0.7cm]  {$d_{cb} < 30[cm]$} (EC)
-    (CM) edge [bend left] node [text width=2cm] {$n_b > 2$} (CJ)
-    (EC) edge  node [above]  {In Nest} (EN)
-           edge  node [above,rotate=45]  {$n_b > 1 \text{ } \wedge$ Out of Nest} (EX) 
-           edge [bend left] node [right,text width=1.3cm] {$n_b = 1 \text{ } \wedge$ Out of Nest $\wedge \text{ } d_{cb} > d_c$} (CE)
-           edge  node {On spot} (SR);
-\end{tikzpicture}
-%\captionof{figure}{Implemented FSM for the \emph{s-bot} chain formation behavior}
-%\end{center}
-\end{tiny}
-
-\note{\begin{scriptsize}
-The general idea of the method is that the robots should first quit the initial deployment room, characterized
-by four surrounding walls, one of them containing an opening to let the robots move outside, and a dark
-grey floor, to then start the exploration phase required to find the target spots.
-In order to reduce the interference phenomenon at the exit of the nest, a sequential deployment mechanism
-based on the robot id has been developed.
-After exiting the nest, the agents should explore the environment, either individually (as explorers) or using
-the collectively-gathered knowledge of the environment (i.e. the chain).
-If no information is available, the robot could decide (stochastically) to become a starting point for a new
-chain in the environment.
-Otherwise, the exploration of the environment should, in principle, profit of the already available knowledge.
-Nevertheless, this method achieves the required chain formation behavior using the embodied information in
-the chain only to exist the nest, while the successive exploration is simply guided by the proximity sensors
-and the distance scanner.
-\end{scriptsize}
-}
-\end{frame}
 
 \section{Results}
-\begin{frame}[t,fragile]{\textbf{Robots in chain}}
+\begin{frame}[t,fragile]{\textbf{Completion time}}
 
 \begin{minipage}{.47\textwidth}
 \centering
@@ -381,7 +337,71 @@ and the distance scanner.
 {\scriptsize (b)}
 \end{minipage}
 \vfill
-\captionof{figure}{Observed distribution of the number of robots in chain over 50 trials displayed as histogram (a) and empirical cumulative density function (b)}
+\begin{center}
+\begin{footnotesize}
+\emph{Observed distribution of the experiments' completion times over 50 trials displayed as histogram (a) and empirical cumulative density function (b). 
+
+50 Robots. RAB Range: 150$[cm]$.}
+\end{footnotesize}
+\end{center}
+\note{
+\begin{scriptsize}
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+& \multicolumn{1}{p{2cm}|}{\textbf{Robots in Chain}} & \multicolumn{1}{p{2cm}|}{\textbf{Completion Time}} \\
+\hline
+\textbf{Mean} &	36.82 & 21779.52 \\
+\hline
+\textbf{Std Dev} & 2.5689671 & 11138.0954867 \\
+\hline
+ \textbf{CV} = $\frac{\sigma}{\mu}$ & 0.06952743 &	0.51140223 \\
+\hline
+ \textbf{Median} & 37 &	21209.5 \\
+\hline
+\textbf{Min} & 30 & 6133 \\
+\hline
+\textbf{Max} & 41 & 47097 \\
+\hline
+\end{tabular}
+\end{center}
+\end{scriptsize}
+
+\begin{footnotesize}
+\begin{itemize}
+  \item 75\% of the trials completed within 30000 timesteps but high CV.
+  \item Influence of random seed on robots' initial position and orientation and stochastic decision to stop of the first robot.
+\end{itemize}
+
+\end{footnotesize}
+
+}
+
+\end{frame}
+
+
+\begin{frame}[t,fragile]{\textbf{Robots in chain}}
+\begin{minipage}{.47\textwidth}
+\centering
+\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel3}.pdf}
+
+{\scriptsize (a)}
+\end{minipage}%
+\hspace{0.15cm}
+\begin{minipage}{.47\textwidth}
+\centering
+\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel4}.pdf}
+
+{\scriptsize (b)}
+\end{minipage}
+\vfill
+\begin{center}
+\begin{footnotesize}
+\emph{Observed distribution of the number of robots in chain over 50 trials displayed as histogram (a) and empirical cumulative density function (b). 
+
+50 Robots. RAB Range: 150$[cm]$.}
+\end{footnotesize}
+\end{center}
 
 \note{
 \begin{scriptsize}
@@ -418,64 +438,18 @@ High variability in the number of robots:
 \end{footnotesize}
 }
 
-\end{frame}
 
-
-\begin{frame}[t,fragile]{\textbf{Completion time}}
-\begin{minipage}{.47\textwidth}
-\centering
-\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel3}.pdf}
-
-{\scriptsize (a)}
-\end{minipage}%
-\hspace{0.15cm}
-\begin{minipage}{.47\textwidth}
-\centering
-\includegraphics[width=0.9\textwidth,keepaspectratio]{{../Results/50Trials/Panel4}.pdf}
-
-{\scriptsize (b)}
-\end{minipage}
-\vfill
-\captionof{figure}{Observed distribution of the experiments' completion times over 50 trials displayed as histogram (a) and empirical cumulative density function (b)}
-\note{
-\begin{scriptsize}
-\begin{center}
-\begin{tabular}{|l|c|c|}
-\hline
-& \multicolumn{1}{p{2cm}|}{\textbf{Robots in Chain}} & \multicolumn{1}{p{2cm}|}{\textbf{Completion Time}} \\
-\hline
-\textbf{Mean} &	36.82 & 21779.52 \\
-\hline
-\textbf{Std Dev} & 2.5689671 & 11138.0954867 \\
-\hline
- \textbf{CV} = $\frac{\sigma}{\mu}$ & 0.06952743 &	0.51140223 \\
-\hline
- \textbf{Median} & 37 &	21209.5 \\
-\hline
-\textbf{Min} & 30 & 6133 \\
-\hline
-\textbf{Max} & 41 & 47097 \\
-\hline
-\end{tabular}
-\end{center}
-\end{scriptsize}
-
-\begin{footnotesize}
-\begin{itemize}
-  \item 75\% of the trials completed within 30000 timesteps but high CV.
-  \item Influence of random seed on robots' initial position and orientation and stochastic decision to stop of the first robot.
-\end{itemize}
-
-\end{footnotesize}
-
-}
 \end{frame}
 
 \begin{frame}[t,fragile]{\textbf{Correlation}}
 \begin{center}
 \includegraphics[width=.7\textheight,keepaspectratio]{{../Results/50Trials/ResultsDistributionCropped}.pdf}  
-\captionof{figure}{Scatterplot of the experiments' completion times versus the number of robots in chain on 50 trials. $r=0.7934599$}
-\end{center}
+
+\begin{footnotesize}
+Scatterplot of the experiments' completion times versus the number of robots in chain on 50 trials. 
+
+50 Robots. RAB Range: 150$[cm]$. $r=0.7934599$.
+\end{footnotesize}\end{center}
 \note{
 \begin{center}
 \begin{tabular}{|l|c|c|}
@@ -499,25 +473,25 @@ Positive and significant correlation between completion times and number of robo
 \begin{large}
 \begin{itemize}
   \vskip10pt
-  \item Simple method:
+  \item<1-> Simple method:
   \begin{itemize}
     \item Random walk
     \item Limited communication
   \end{itemize}
   \vskip10pt
-  \item Here, simplicity entails:
+  \item<2-> Here, simplicity entails:
   \begin{itemize}
     \item Lack of placement optimality
     \item High results variability
   \end{itemize}
   \vskip10pt
-  \item The width of the communication range impacts on:
+  \item<3-> The width of the communication range impacts on:
   \begin{itemize}
     \item Completion time
     \item Number of robots in chain
   \end{itemize}
   \vskip10pt
-  \item Relevant impact of the structure of the environment on the method's performance.
+  \item<4-> Relevant impact of the structure of the environment on the method's performance.
 \end{itemize}
 \end{large}
 
